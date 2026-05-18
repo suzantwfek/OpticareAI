@@ -45,28 +45,34 @@ def get_login_page():
     with open("login.html", "r", encoding="utf-8") as f:
         return f.read()
 
-# 3. مسار صفحة لوحة التحكم (Dashboard)
+# 3. مسار صفحة إنشاء حساب جديد (Register / SignUp)
+@app.get("/register.html", response_class=HTMLResponse)
+def get_register_page():
+    with open("register.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+# 4. مسار صفحة لوحة التحكم (Dashboard)
 @app.get("/dashboard.html", response_class=HTMLResponse)
 def get_dashboard_page():
     with open("dashboard.html", "r", encoding="utf-8") as f:
         return f.read()
 
-# 4. مسار صفحة الفحص ورفع الصور (Scan)
+# 5. مسار صفحة الفحص ورفع الصور (Scan)
 @app.get("/scan.html", response_class=HTMLResponse)
 def get_scan_page():
     with open("scan.html", "r", encoding="utf-8") as f:
         return f.read()
 
-# 5. مسار صفحة إظهار النتيجة النهائية (Results)
+# 6. مسار صفحة إظهار النتيجة النهائية (Results)
 @app.get("/results.html", response_class=HTMLResponse)
 def get_results_page():
     with open("results.html", "r", encoding="utf-8") as f:
         return f.read()
 
-# 6. مسار صفحة الإعدادات (Settings) - تم إضافتها بناءً على طلبك
-@app.get("/settings.html", response_class=HTMLResponse)
-def get_settings_page():
-    with open("settings.html", "r", encoding="utf-8") as f:
+# 7. مسار صفحة التاريخ أو السجل (History) - تم إضافتها بناءً على ملفاتك
+@app.get("/history.html", response_class=HTMLResponse)
+def get_history_page():
+    with open("history.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -87,10 +93,10 @@ async def predict(file: UploadFile = File(...)):
         predictions = model.predict(img_array)
         raw = predictions[0]
 
-        # طباعة المخرجات الرقمية في الـ Logs بتاعة Railway عشان نراقب الأرقام بدقة
+        # طباعة المخرجات الرقمية في الـ Logs بتاعة Railway لمراقبة الأرقام بدقة
         print(f"--- Model Raw Output: {raw} ---")
 
-        # الاحتمال الأول: إذا كان الموديل بيطلع قيمة واحدة فقط بين الـ 0 والـ 1 (Binary Classification بناتج واحد)
+        # الاحتمال الأول: إذا كان الموديل بيطلع قيمة واحدة فقط بين الـ 0 والـ 1 (Binary Classification)
         if len(raw) == 1 or (hasattr(raw, 'shape') and len(raw.shape) == 1 and raw.shape[0] == 1):
             prob_glaucoma = float(raw[0])
             
