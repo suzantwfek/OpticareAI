@@ -238,11 +238,62 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
 .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; }
 .footer-links a { font-size: .8rem; color: var(--text-muted); text-decoration: none; }
 .footer-links a:hover { color: var(--teal-dark); }
+
+/* ==========================================
+   ===== التحديثات الذكية للموبايل والتابلت =====
+   ========================================== */
+@media (max-width: 992px) {
+  .content-grid { grid-template-columns: 1fr; } /* نزول كارت النصائح أسفل الجدول */
+}
+
+@media (max-width: 768px) {
+  /* تحويل الليآوت لعمود واحد وإلغاء تثبيت السايدبار الجانبي ليتماشى مع الموبايل */
+  .layout { flex-direction: column; }
+  
+  .sidebar { 
+    width: 100% !important; 
+    height: auto !important; 
+    position: relative !important; 
+    top: 0 !important; 
+    border-right: none !important; 
+    border-bottom: 1px solid var(--border) !important;
+    padding: 1rem !important;
+  }
+  
+  .sidebar-spacer { display: none; }
+  .start-scan-btn { margin-top: 1rem; }
+
+  .main-inner { padding: 1.25rem 1rem 0 !important; gap: 1.25rem !important; }
+  
+  /* تظبيط الهيدر والزرار في الموبايل */
+  .header-row { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .new-scan-btn { text-align: center; justify-content: center; width: 100%; }
+  .page-title { font-size: 1.85rem !important; }
+
+  /* تحويل شبكة الكروت لعمودين أو عمود واحد حسب حجم الشاشة */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.75rem !important; }
+  .stat-card { padding: 1rem !important; }
+  .stat-val { font-size: 1.6rem !important; }
+
+  /* إضافة سكرول أفقي ناعم للجدول في الشاشات الصغيرة جداً لحماية التصميم من التمزق */
+  #scans-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 500px; }
+  
+  /* تظبيط التوب ناف الهيدر العلوي */
+  .topnav { padding: 0 1rem !important; gap: 1rem !important; }
+  .new-scan-topbtn { display: none; } /* إخفاء الزرار العلوي المكرر في الموبايل توفيراً للمساحة */
+  
+  .page-footer { padding: 1.25rem 1rem !important; flex-direction: column; text-align: center; align-items: center; }
+  .footer-links { justify-content: center; gap: 1rem; }
+}
+
+@media (max-width: 48px) {
+  .stats-grid { grid-template-columns: 1fr !important; } /* الكروت تحت بعضها تماماً في الموبايلات الصغيرة جداً */
+}
 </style>
 </head>
 <body>
 
-<!-- TOP NAV -->
 <nav class="topnav">
   <a href="dashboard.html" class="brand">Opticare AI</a>
   <div class="topnav-right">
@@ -258,7 +309,6 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
 
 <div class="layout">
 
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon">👁️</div>
@@ -308,11 +358,9 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
     </div>
   </aside>
 
-  <!-- MAIN -->
   <main class="main">
     <div class="main-inner">
 
-      <!-- HEADER -->
       <div class="header-row">
         <div>
           <div class="page-welcome" id="patient-name">WELCOME BACK</div>
@@ -322,7 +370,6 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
         <button class="new-scan-btn" onclick="window.location.href='scan.html'">👁️ New Eye Scan</button>
       </div>
 
-      <!-- STATS -->
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">Total Scans</div>
@@ -342,17 +389,14 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
         </div>
       </div>
 
-      <!-- CONTENT GRID -->
       <div class="content-grid">
 
-        <!-- SCANS TABLE -->
         <div class="card">
           <div class="card-header">
             <div class="card-title">My Scans</div>
             <a href="history.html" class="view-all">View Full History →</a>
           </div>
 
-          <!-- Empty state -->
           <div id="empty-state">
             <div class="empty-icon">🔬</div>
             <div class="empty-title">No scans yet</div>
@@ -360,7 +404,6 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
             <button class="empty-cta" onclick="window.location.href='scan.html'">👁️ Start My First Scan</button>
           </div>
 
-          <!-- Table (hidden when empty) -->
           <div id="scans-table-wrap">
             <table>
               <thead>
@@ -377,7 +420,6 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
           </div>
         </div>
 
-        <!-- TIPS / INFO CARD -->
         <div class="tips-card">
           <div class="tips-title">👁️ Eye Health Tips</div>
           <div class="tip-item">
@@ -413,11 +455,10 @@ thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-t
       </div>
     </div>
 
-    <!-- FOOTER -->
     <footer class="page-footer">
       <div>
         <div class="footer-brand">Opticare AI</div>
-        <div class="footer-copy">© 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.<br>Results are AI-assisted and do not replace professional medical advice.</div>
+        <div class="footer-copy">©️ 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.<br>Results are AI-assisted and do not replace professional medical advice.</div>
       </div>
       <div class="footer-links">
         <a href="#">Privacy Policy</a>

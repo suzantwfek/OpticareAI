@@ -333,6 +333,8 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
   display:flex; align-items:center; gap:6px; transition:background .2s; }
 .btn-newscan:hover { background:var(--teal); }
 
+/* تغليف الجدول عشان الاسكرول في الشاشات الصغيرة */
+.table-responsive-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width:100%; border-collapse:collapse; }
 thead tr { border-bottom:1px solid var(--border); }
 th { padding:.85rem 1.25rem; text-align:left; font-size:.7rem; font-weight:700;
@@ -366,11 +368,63 @@ tr:hover td { background:#fafafa; }
   .stats-row { grid-template-columns:1fr 1fr; }
   .stat-card.wide { grid-column:1/-1; }
 }
+
+/* =======================================================
+   ===== التعديلات الذكية للموبايل والتابلت لصفحة السجل =====
+   ======================================================= */
+@media (max-width: 768px) {
+  .layout { flex-direction: column; }
+  
+  /* تحرير السايدبار ليكون مرن بالكامل */
+  .sidebar { 
+    width: 100% !important; 
+    height: auto !important; 
+    position: relative !important; 
+    top: 0 !important; 
+    border-right: none !important; 
+    border-bottom: 1px solid var(--border) !important;
+    padding: 1rem !important;
+  }
+  .sidebar-spacer { display: none; }
+  .start-scan-btn { margin-top: 1rem; }
+
+  .main-inner { padding: 1.25rem 1rem 0 !important; gap: 1.25rem !important; }
+
+  /* تظبيط الهيدر والبحث في الموبايل */
+  .header-row { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .search-row, .search-wrap { width: 100% !important; }
+
+  /* الكروت تحت بعضها أو 2x2 */
+  .stats-row { grid-template-columns: repeat(2, 1fr) !important; gap: 0.75rem !important; }
+  .stat-card { padding: 1rem !important; }
+  .stat-value { font-size: 1.5rem !important; }
+  .stat-card.wide { grid-column: span 2 !important; flex-direction: row !important; padding: 1rem !important; }
+
+  /* تظبيط أزرار الجدول العلوي وتنسيقها */
+  .table-header { flex-direction: column; align-items: stretch; gap: 1rem; padding: 1rem !important; }
+  .table-actions { flex-direction: column; gap: 0.5rem; }
+  .btn-export, .btn-newscan { width: 100%; justify-content: center; }
+
+  /* تفعيل السكرول للجدول ومنع تمدد الشاشة */
+  table { min-width: 650px; }
+
+  /* تظبيط الفوتر والـ Pagination */
+  .table-footer { flex-direction: column; gap: 1rem; text-align: center; padding: 1rem !important; }
+  .topnav { padding: 0 1rem !important; gap: 1rem !important; }
+  .page-footer { padding: 1.25rem 1rem !important; flex-direction: column; text-align: center; align-items: center; }
+  .footer-links { justify-content: center; gap: 1rem; }
+}
+
+@media (max-width: 480px) {
+  /* الموبايلات الصغيرة جداً: الكروت عمودية تماماً */
+  .stats-row { grid-template-columns: 1fr !important; }
+  .stat-card.wide { grid-column: 1 !important; flex-direction: column !important; text-align: center; }
+  #mini-circle { margin-top: 0.5rem; }
+}
 </style>
 </head>
 <body>
 
-<!-- TOP NAV -->
 <nav class="topnav">
   <a href="dashboard.html" class="brand">Opticare AI</a>
   <div class="topnav-right">
@@ -385,7 +439,6 @@ tr:hover td { background:#fafafa; }
 
 <div class="layout">
 
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon">👁️</div>
@@ -435,11 +488,9 @@ tr:hover td { background:#fafafa; }
     </div>
   </aside>
 
-  <!-- MAIN -->
   <main class="main">
     <div class="main-inner">
 
-      <!-- PAGE HEADER -->
       <div>
         <div class="breadcrumb">
           <a href="dashboard.html">My Dashboard</a> › <span>Scan History</span>
@@ -458,7 +509,6 @@ tr:hover td { background:#fafafa; }
         </div>
       </div>
 
-      <!-- STATS -->
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-top"><div class="stat-icon">📋</div></div>
@@ -485,7 +535,6 @@ tr:hover td { background:#fafafa; }
         </div>
       </div>
 
-      <!-- TABLE -->
       <div class="table-section">
         <div class="table-header">
           <div class="table-title">All Scans</div>
@@ -495,20 +544,22 @@ tr:hover td { background:#fafafa; }
           </div>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Scan</th>
-              <th>Date & Time</th>
-              <th>AI Confidence</th>
-              <th>Result</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="table-body">
-            <tr><td colspan="5" style="text-align:center;padding:3rem;color:var(--text-muted);">Loading your scans...</td></tr>
-          </tbody>
-        </table>
+        <div class="table-responsive-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Scan</th>
+                <th>Date & Time</th>
+                <th>AI Confidence</th>
+                <th>Result</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="5" style="text-align:center;padding:3rem;color:var(--text-muted);">Loading your scans...</td></tr>
+            </tbody>
+          </table>
+        </div>
 
         <div class="table-footer">
           <div class="showing-text" id="showing-text">Loading...</div>
@@ -518,11 +569,10 @@ tr:hover td { background:#fafafa; }
 
     </div>
 
-    <!-- FOOTER -->
     <footer class="page-footer">
       <div>
         <div class="footer-brand">Opticare AI</div>
-        <div class="footer-copy">© 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.<br>Results are AI-assisted and do not replace professional medical advice.</div>
+        <div class="footer-copy">©️ 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.<br>Results are AI-assisted and do not replace professional medical advice.</div>
       </div>
       <div class="footer-links">
         <a href="#">Privacy Policy</a>
