@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — Glaucoma Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
+    authDomain: "opticare-ai-4bd34.firebaseapp.com",
+    projectId: "opticare-ai-4bd34",
+    storageBucket: "opticare-ai-4bd34.firebasestorage.app",
+    messagingSenderId: "630632927138",
+    appId: "1:630632927138:web:585517ff40a60c2165ecfb"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // If already logged in → go directly to diagnose
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      document.querySelectorAll(".go-diagnose").forEach(el => {
+        el.href = "dashboard.html";
+      });
+      document.querySelectorAll(".go-login").forEach(el => {
+        el.textContent = "Dashboard";
+        el.href = "diagnose.html";
+      });
+    }
+  });
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #0F6E56;
+    --teal-light: #E1F5EE;
+    --teal-mid: #1D9E75;
+    --teal-dark: #085041;
+    --text: #1a1a1a;
+    --text-muted: #6b7280;
+    --bg: #ffffff;
+    --bg-soft: #f8faf9;
+    --border: #e5e7eb;
+    --radius: 14px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 6%;
+    position: sticky;
+    top: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .logo {
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .logo-dot {
+    width: 10px; height: 10px;
+    background: var(--teal-mid);
+    border-radius: 50%;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--teal); }
+  .nav-links a.active { color: var(--text); font-weight: 500; border-bottom: 2px solid var(--teal-mid); padding-bottom: 2px; }
+
+  .nav-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+  .btn-outline {
+    padding: 0.5rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { background: var(--bg-soft); }
+
+  .btn-primary {
+    padding: 0.55rem 1.3rem;
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: var(--teal-dark); }
+
+  /* HERO */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+    padding: 5rem 6% 4rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--teal-light);
+    color: var(--teal);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    margin-bottom: 1.5rem;
+  }
+
+  .badge-dot { width: 7px; height: 7px; background: var(--teal-mid); border-radius: 50%; }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    line-height: 1.15;
+    color: var(--text);
+    margin-bottom: 1.2rem;
+  }
+
+  .hero-desc {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    max-width: 480px;
+    margin-bottom: 2rem;
+  }
+
+  .hero-cta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+
+  .btn-hero {
+    padding: 0.75rem 1.8rem;
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+    text-decoration: none;
+  }
+  .btn-hero:hover { background: var(--teal-dark); }
+
+  .btn-ghost {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { background: var(--bg-soft); }
+
+  .trust-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .avatar-stack { display: flex; }
+  .avatar-stack span {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--teal-light);
+    border: 2px solid white;
+    margin-left: -8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--teal);
+  }
+  .avatar-stack span:first-child { margin-left: 0; }
+
+  /* HERO VISUAL */
+  .hero-visual {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .scan-card {
+    background: #0d1f1a;
+    border-radius: 20px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+  }
+
+  .scan-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem 0.5rem;
+  }
+
+  .scan-label { font-size: 0.7rem; color: rgba(255,255,255,0.45); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .processing-badge {
+    background: rgba(29,158,117,0.2);
+    color: #5DCAA5;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .processing-dot {
+    width: 6px; height: 6px;
+    background: #5DCAA5;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .eye-img-wrap {
+    padding: 0.5rem 1.25rem 0;
+    position: relative;
+  }
+
+  .eye-scan-img {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+    background: radial-gradient(ellipse at center, #c0440a 0%, #7a2200 25%, #3a1000 55%, #0d1f1a 100%);
+    height: 210px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .eye-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(29,158,117,0.4);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+  }
+
+  .eye-ring:nth-child(1) { width: 60px; height: 60px; }
+  .eye-ring:nth-child(2) { width: 110px; height: 110px; border-color: rgba(29,158,117,0.25); }
+  .eye-ring:nth-child(3) { width: 160px; height: 160px; border-color: rgba(29,158,117,0.15); }
+  .eye-ring:nth-child(4) { width: 210px; height: 210px; border-color: rgba(29,158,117,0.08); }
+
+  .eye-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 24px; height: 24px;
+    background: radial-gradient(circle, #ff8c42, #e85d00);
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(232,93,0,0.6);
+  }
+
+  .scan-line {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(29,158,117,0.8), transparent);
+    animation: scanline 2.5s ease-in-out infinite;
+  }
+
+  @keyframes scanline {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .confidence-box {
+    margin: 1rem 1.25rem 1.25rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .conf-label { font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .conf-value { font-size: 1.8rem; font-weight: 600; color: white; line-height: 1; }
+  .conf-sub { font-size: 0.72rem; color: rgba(255,255,255,0.35); margin-top: 4px; }
+
+  .conf-bar-wrap { width: 100px; }
+  .conf-bar-bg { height: 5px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+  .conf-bar-fill { height: 100%; background: var(--teal-mid); border-radius: 999px; width: 99.8%; }
+
+  /* FEATURES */
+  .features-section {
+    background: var(--bg-soft);
+    padding: 5rem 6%;
+    text-align: center;
+  }
+
+  .section-tag {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--teal);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    margin-bottom: 0.75rem;
+  }
+
+  .section-desc {
+    color: var(--text-muted);
+    max-width: 520px;
+    margin: 0 auto 3rem;
+    font-size: 1rem;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .feature-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem 1.5rem;
+    text-align: left;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.07);
+  }
+
+  .feature-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+
+  .icon-teal { background: var(--teal-light); color: var(--teal); }
+  .icon-blue { background: #EFF6FF; color: #1d4ed8; }
+  .icon-amber { background: #FFFBEB; color: #b45309; }
+
+  .feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .feature-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; }
+
+  /* CTA SECTION */
+  .cta-section {
+    background: var(--teal-dark);
+    color: white;
+    padding: 4.5rem 6%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+    border-radius: 28px;
+    margin: 3rem 6%;
+  }
+
+  .cta-section h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+
+  .cta-section p { color: rgba(255,255,255,0.65); font-size: 0.95rem; margin-bottom: 1.75rem; }
+
+  .cta-checks { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 2rem; }
+  .cta-checks li { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: rgba(255,255,255,0.8); }
+  .check-icon { color: #5DCAA5; font-size: 1rem; }
+
+  .btn-cta {
+    display: inline-block;
+    padding: 0.8rem 2rem;
+    background: white;
+    color: var(--teal-dark);
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: opacity 0.2s;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-cta:hover { opacity: 0.9; }
+
+  /* DASHBOARD WIDGET */
+  .dash-widget {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 1.25rem;
+  }
+
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .live-dot {
+    display: flex; align-items: center; gap: 5px;
+    color: #5DCAA5; font-size: 0.75rem;
+  }
+
+  .dash-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 0.85rem;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .dash-patient { display: flex; align-items: center; gap: 10px; }
+  .patient-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
+
+  .dash-patient-info { font-size: 0.82rem; color: white; font-weight: 500; }
+  .dash-patient-sub { font-size: 0.72rem; color: rgba(255,255,255,0.35); }
+
+  .status-normal { background: rgba(29,158,117,0.15); color: #5DCAA5; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 500; }
+  .status-anomaly { background: rgba(234,75,74,0.15); color: #F09595; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 500; }
+  .status-processing { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 999px; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2.5rem 6%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .footer-brand p { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.5rem; max-width: 260px; line-height: 1.6; }
+
+  .footer-links { display: flex; gap: 2rem; flex-wrap: wrap; }
+  .footer-links a { font-size: 0.85rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--teal); }
+
+  .footer-bottom { margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+
+  @media (max-width: 768px) {
+    .hero { grid-template-columns: 1fr; }
+    .cta-section { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+    footer { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="logo">
+    <div class="logo-dot"></div>
+    Opticare AI
+  </a>
+  <div class="nav-actions">
+    <a href="login.html" class="btn-outline go-login">Login</a>
+    <a href="login.html" class="btn-primary go-diagnose">Get Started</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section>
+  <div class="hero">
+    <div class="hero-content">
+      <div class="badge">
+        <div class="badge-dot"></div>
+        AI-Powered Eye Diagnostics
+      </div>
+      <h1>Precision Retinal Analysis<br/>Powered by AI</h1>
+      <p class="hero-desc">
+        Empowering ophthalmologists with high-accuracy AI diagnostics for early detection of Glaucoma. Process fundus scans in seconds with clinical-grade precision.
+      </p>
+      <div class="hero-cta">
+        <a href="login.html" class="btn-hero go-diagnose">
+          Get Started →
+        </a>
+        <a href="#features" class="btn-ghost">
+          ▶ View Demo
+        </a>
+      </div>
+      <div class="trust-row">
+        <div class="avatar-stack">
+          <span>DR</span>
+          <span>MK</span>
+          <span>SA</span>
+        </div>
+        500+ Clinicians Trust Opticare AI
+      </div>
+    </div>
+
+    <!-- VISUAL -->
+    <div class="hero-visual">
+      <div class="scan-card">
+        <div class="scan-card-header">
+          <div>
+            <div class="scan-label">AI Diagnostic Scan</div>
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.6);margin-top:2px;">Optic Nerve Analysis</div>
+          </div>
+          <div class="processing-badge">
+            <div class="processing-dot"></div>
+            Processing
+          </div>
+        </div>
+
+        <div class="eye-img-wrap">
+          <div class="eye-scan-img">
+            <div class="scan-line"></div>
+            <div class="eye-ring"></div>
+            <div class="eye-ring"></div>
+            <div class="eye-ring"></div>
+            <div class="eye-ring"></div>
+            <div class="eye-center"></div>
+          </div>
+        </div>
+
+        <div class="confidence-box">
+          <div>
+            <div class="conf-label">Confidence</div>
+            <div class="conf-value">90%</div>
+            <div class="conf-sub">Detection probability for Glaucoma</div>
+          </div>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar-bg">
+              <div class="conf-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section" id="features">
+  <div class="section-tag">Capabilities</div>
+  <h2 class="section-title">Advanced Diagnostic Capabilities</h2>
+  <p class="section-desc">Our platform combines state-of-the-art deep learning with clinical expertise to provide unmatched retinal insights.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon icon-teal">⚡</div>
+      <h3>Instant Diagnostics</h3>
+      <p>Real-time analysis of Fundus images. Eliminate wait times and provide immediate feedback during consultations.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-blue">🛡️</div>
+      <h3>90% Accuracy</h3>
+      <p>Clinically validated deep learning models trained on millions of retinal datasets. Precision you can trust for critical medical decisions.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-amber">🔒</div>
+      <h3>Secure & Compliant</h3>
+      <p>Full HIPAA and GDPR data protection. Your patient data is encrypted and handled with the highest standards of medical privacy.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA SECTION -->
+<div class="cta-section">
+  <div>
+    <h2>Experience the future of Ophthalmology</h2>
+    <p>Integrate our AI directly into your existing clinical workflow. Compatible with all major hardware manufacturers.</p>
+    <ul class="cta-checks">
+      <li><span class="check-icon">✓</span> Seamless EMR Integration</li>
+      <li><span class="check-icon">✓</span> Cloud-based Analytics Dashboard</li>
+      <li><span class="check-icon">✓</span> Automated Report Generation</li>
+    </ul>
+    <a href="login.html" class="btn-cta go-diagnose">Request a Demo</a>
+  </div>
+
+  <div class="dash-widget">
+    <div class="dash-header">
+      <span>Diagnostic Hub</span>
+      <div class="live-dot">
+        <div class="processing-dot"></div>
+        LIVE PROCESSING
+      </div>
+    </div>
+
+    <div class="dash-row">
+      <div class="dash-patient">
+        <div class="patient-icon" style="background:rgba(29,158,117,0.2);">👁️</div>
+        <div>
+          <div class="dash-patient-info">Patient #0824</div>
+          <div class="dash-patient-sub">Fundus Scan</div>
+        </div>
+      </div>
+      <span class="status-normal">NORMAL</span>
+    </div>
+
+    <div class="dash-row">
+      <div class="dash-patient">
+        <div class="patient-icon" style="background:rgba(234,75,74,0.15);">⚠️</div>
+        <div>
+          <div class="dash-patient-info">Patient #0825</div>
+          <div class="dash-patient-sub">Fundus Scan</div>
+        </div>
+      </div>
+      <span class="status-anomaly">GLAUCOMA DETECTED</span>
+    </div>
+
+    <div class="dash-row">
+      <div class="dash-patient">
+        <div class="patient-icon" style="background:rgba(255,255,255,0.05);">💬</div>
+        <div>
+          <div class="dash-patient-info">Patient #0826</div>
+          <div class="dash-patient-sub">Fundus Scan</div>
+        </div>
+      </div>
+      <span class="status-processing">PROCESSING</span>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">
+    <div class="logo" style="margin-bottom:0.5rem;">
+      <div class="logo-dot"></div>
+      Opticare AI
+    </div>
+    <p>© 2026 Opticare AI. High-precision retinal diagnostics.<br/>Empowering vision health through artificial intelligence.</p>
+  </div>
+  <div>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Compliance</a>
+      <a href="#">Terms of Use</a>
+      <a href="#">Support</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

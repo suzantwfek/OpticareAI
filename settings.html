@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
+    authDomain: "opticare-ai-4bd34.firebaseapp.com",
+    projectId: "opticare-ai-4bd34",
+    storageBucket: "opticare-ai-4bd34.firebasestorage.app",
+    messagingSenderId: "630632927138",
+    appId: "1:630632927138:web:585517ff40a60c2165ecfb"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+  let currentUser = null;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = "login.html"; return; }
+    currentUser = user;
+
+    const snap = await getDoc(doc(db, "users", user.uid));
+    const data = snap.exists() ? snap.data() : {};
+    const name = data.name || user.email;
+    const initials = name.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
+
+    document.getElementById("user-initials").textContent   = initials;
+    document.getElementById("sidebar-initials").textContent = initials;
+    document.getElementById("sidebar-name").textContent    = name;
+
+    document.getElementById("inp-name").value  = data.name  || "";
+    document.getElementById("inp-email").value = user.email || "";
+    document.getElementById("inp-dob").value   = data.dob   || "";
+
+    try {
+      const scans = await getDocs(collection(db, "users", user.uid, "scans"));
+      document.getElementById("stat-scans").textContent = scans.size;
+      const flagged = [...scans.docs].filter(d => d.data().isGlaucoma).length;
+      document.getElementById("stat-flagged").textContent = flagged;
+    } catch(e) {}
+  });
+
+  window.saveProfile = async () => {
+    if (!currentUser) return;
+    const btn = document.getElementById("save-btn");
+    btn.textContent = "Saving..."; btn.disabled = true;
+    try {
+      await setDoc(doc(db, "users", currentUser.uid), {
+        name: document.getElementById("inp-name").value,
+        dob:  document.getElementById("inp-dob").value,
+      }, { merge: true });
+      btn.textContent = "✓ Saved!";
+      btn.style.background = "#1D9E75";
+      setTimeout(() => {
+        btn.textContent = "Save Profile";
+        btn.style.background = "";
+        btn.disabled = false;
+      }, 2000);
+    } catch(e) {
+      console.error(e);
+      btn.textContent = "Error — Try Again";
+      btn.disabled = false;
+    }
+  };
+
+  window.handleLogout = () => signOut(auth).then(() => window.location.href = "login.html");
+
+  window.confirmDelete = () => {
+    if (confirm("Are you sure you want to delete your account? All your scan history will be permanently removed.")) {
+      deleteUser(currentUser)
+        .then(() => window.location.href = "login.html")
+        .catch(() => alert("Please sign out and sign back in before deleting your account."));
+    }
+  };
+</script>
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --teal-dark:#085041; --teal:#0F6E56; --teal-mid:#1D9E75;
+  --teal-light:#E1F5EE; --teal-pale:#f4fbf8;
+  --text:#111827; --text-soft:#374151; --text-muted:#6b7280; --text-faint:#9ca3af;
+  --bg:#eef4f2; --white:#ffffff; --border:#e5e7eb; --sidebar-w:235px;
+  --red:#ef4444;
+}
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text);
+  display:flex; flex-direction:column; min-height:100vh; }
+
+/* TOP NAV */
+.topnav { background:var(--white); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 1.5rem; height:52px; gap:2rem;
+  position:sticky; top:0; z-index:100; }
+.brand { font-weight:700; font-size:1.05rem; color:var(--teal-dark); text-decoration:none; white-space:nowrap; }
+.topnav-right { margin-left:auto; display:flex; align-items:center; gap:.75rem; }
+.icon-btn { width:34px; height:34px; border-radius:8px; background:var(--bg); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; transition:background .15s; }
+.icon-btn:hover { background:var(--teal-light); }
+.user-chip { width:34px; height:34px; background:var(--teal-dark); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:700;
+  color:white; cursor:pointer; position:relative; }
+.user-chip .dropdown { position:absolute; top:42px; right:0; background:white; border:1px solid var(--border);
+  border-radius:10px; padding:.5rem; min-width:140px; box-shadow:0 8px 24px rgba(0,0,0,.1);
+  display:none; z-index:200; }
+.user-chip:hover .dropdown { display:block; }
+.dropdown button { width:100%; padding:.4rem .6rem; background:none; border:none;
+  font-family:inherit; font-size:.85rem; color:#ef4444; cursor:pointer; text-align:left; border-radius:6px; }
+.dropdown button:hover { background:#fef2f2; }
+
+/* LAYOUT */
+.layout { display:flex; flex:1; }
+
+/* SIDEBAR */
+.sidebar { width:var(--sidebar-w); background:var(--white); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; padding:1.25rem .9rem;
+  position:sticky; top:52px; height:calc(100vh - 52px); overflow-y:auto; flex-shrink:0; }
+.sidebar-brand { display:flex; align-items:center; gap:10px; padding:.75rem; background:var(--teal-light);
+  border-radius:12px; margin-bottom:1.5rem; }
+.sidebar-brand-icon { width:38px; height:38px; background:var(--teal-dark); border-radius:9px;
+  display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
+.sidebar-brand-text strong { font-size:.9rem; color:var(--teal-dark); display:block; line-height:1.2; }
+.sidebar-brand-text span { font-size:.67rem; color:var(--teal-mid); text-transform:uppercase; letter-spacing:.07em; }
+.nav-group { display:flex; flex-direction:column; gap:2px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:.62rem .85rem; border-radius:10px;
+  color:var(--text-muted); font-size:.875rem; text-decoration:none; transition:all .15s;
+  border:none; background:none; font-family:inherit; width:100%; cursor:pointer; }
+.nav-item:hover { background:var(--bg); color:var(--text-soft); }
+.nav-item.active { background:var(--teal-light); color:var(--teal-dark); font-weight:600; }
+.nav-item svg { width:18px; height:18px; flex-shrink:0; opacity:.7; }
+.nav-item.active svg { opacity:1; }
+.nav-divider { height:1px; background:var(--border); margin:.6rem 0; }
+.sidebar-spacer { flex:1; }
+.sidebar-footer { display:flex; flex-direction:column; gap:8px; }
+.start-scan-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+  padding:.75rem; background:var(--teal-dark); color:white; border:none; border-radius:10px;
+  font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .2s; }
+.start-scan-btn:hover { background:var(--teal); }
+.sidebar-user { display:flex; align-items:center; gap:9px; padding:.6rem .5rem; margin-top:4px; }
+.sidebar-avatar { width:32px; height:32px; background:var(--teal-dark); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:700;
+  color:white; flex-shrink:0; }
+.sidebar-user-name { font-size:.8rem; font-weight:600; color:var(--text); line-height:1.2; }
+.sidebar-user-role { font-size:.7rem; color:var(--text-muted); }
+
+/* MAIN */
+.main { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
+.main-inner { padding:2rem; flex:1; display:flex; flex-direction:column; gap:1.5rem; max-width:1100px; width:100%; }
+
+/* PAGE HEADER */
+.page-title { font-family:'DM Serif Display',serif; font-size:2rem; color:var(--text); }
+.page-desc  { font-size:.9rem; color:var(--text-muted); margin-top:.3rem; }
+
+/* TOP GRID */
+.top-grid { display:grid; grid-template-columns:1fr 300px; gap:1.25rem; }
+
+/* PROFILE CARD */
+.card { background:var(--white); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+.card-head { display:flex; align-items:center; gap:12px; padding:1.4rem 1.5rem; border-bottom:1px solid var(--border); }
+.card-head-icon { width:42px; height:42px; background:var(--teal-light); border-radius:10px;
+  display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+.card-head-title { font-weight:600; font-size:1rem; line-height:1.2; }
+.card-head-sub   { font-size:.8rem; color:var(--text-muted); margin-top:2px; }
+.card-body { padding:1.5rem; }
+
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.form-group { display:flex; flex-direction:column; gap:.45rem; }
+.form-group.full { grid-column:1/-1; }
+.form-label { font-size:.8rem; font-weight:600; color:var(--text-soft); }
+.form-input { padding:.65rem .9rem; border:1px solid var(--border); border-radius:9px;
+  font-family:inherit; font-size:.88rem; color:var(--text); background:var(--bg);
+  transition:border-color .15s, background .15s; outline:none; }
+.form-input:focus { border-color:var(--teal-mid); background:var(--white); }
+.form-input[readonly] { background:#f9fafb; color:var(--text-muted); cursor:default; }
+
+.save-btn { margin-top:1.25rem; padding:.75rem 1.75rem; background:var(--teal-dark); color:white;
+  border:none; border-radius:10px; font-family:inherit; font-size:.92rem; font-weight:600;
+  cursor:pointer; transition:background .2s; }
+.save-btn:hover { background:var(--teal); }
+.save-btn:disabled { opacity:.6; cursor:not-allowed; }
+
+/* USAGE CARD */
+.usage-card { background:var(--teal-dark); border-radius:16px; padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+.usage-title { font-size:1rem; font-weight:600; color:white; margin-bottom:.25rem; }
+.usage-stat { background:rgba(255,255,255,.1); border-radius:12px; padding:1.1rem 1.25rem; }
+.usage-stat-label { font-size:.75rem; color:rgba(255,255,255,.6); margin-bottom:.3rem; }
+.usage-stat-val { font-family:'DM Serif Display',serif; font-size:2rem; color:white; line-height:1; }
+.usage-stat-sub { font-size:.72rem; color:rgba(255,255,255,.5); margin-top:.25rem; }
+.download-btn { width:100%; padding:.8rem; background:rgba(255,255,255,.15);
+  border:1.5px solid rgba(255,255,255,.3); border-radius:10px; color:white;
+  font-family:inherit; font-size:.88rem; font-weight:600; cursor:pointer; transition:all .2s; margin-top:.25rem; }
+.download-btn:hover { background:rgba(255,255,255,.25); }
+
+/* BOTTOM GRID */
+.bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+
+/* TOGGLE ROWS */
+.toggle-row { display:flex; align-items:center; justify-content:space-between;
+  padding:.9rem 0; border-bottom:1px solid var(--border); }
+.toggle-row:last-child { border-bottom:none; }
+.toggle-left { display:flex; align-items:center; gap:12px; }
+.toggle-icon { width:36px; height:36px; background:var(--bg); border-radius:9px;
+  display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0; }
+.toggle-label { font-weight:500; font-size:.88rem; }
+.toggle-sublabel { font-size:.76rem; color:var(--text-muted); margin-top:2px; }
+.toggle { position:relative; width:42px; height:24px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-track { position:absolute; inset:0; background:#d1d5db; border-radius:999px;
+  cursor:pointer; transition:background .2s; }
+.toggle input:checked + .toggle-track { background:var(--teal-dark); }
+.toggle-track::after { content:""; position:absolute; width:18px; height:18px; border-radius:50%;
+  background:white; top:3px; left:3px; transition:transform .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.toggle input:checked + .toggle-track::after { transform:translateX(18px); }
+
+/* SECURITY CARD */
+.security-card { background:var(--white); border:1.5px solid #fecaca; border-radius:16px; overflow:hidden; }
+.security-head { display:flex; align-items:center; gap:12px; padding:1.2rem 1.5rem; border-bottom:1px solid #fecaca; }
+.security-head-icon { width:40px; height:40px; background:#fef2f2; border-radius:10px;
+  display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
+.security-head-title { font-weight:600; font-size:1rem; color:#dc2626; }
+.security-head-sub   { font-size:.78rem; color:#ef4444; margin-top:2px; }
+.security-body { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+.security-warning { background:#fef2f2; border:1px solid #fecaca; border-radius:10px;
+  padding:.9rem 1rem; font-size:.82rem; color:#7f1d1d; line-height:1.6; }
+.security-warning strong { color:#dc2626; }
+.security-actions { display:flex; gap:.75rem; }
+.btn-signout { flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
+  padding:.75rem; background:var(--white); border:1.5px solid #dc2626; border-radius:10px;
+  color:#dc2626; font-family:inherit; font-size:.88rem; font-weight:600; cursor:pointer; transition:all .2s; }
+.btn-signout:hover { background:#fef2f2; }
+.btn-delete { flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
+  padding:.75rem; background:#dc2626; border:none; border-radius:10px;
+  color:white; font-family:inherit; font-size:.88rem; font-weight:600; cursor:pointer; transition:background .2s; }
+.btn-delete:hover { background:#b91c1c; }
+
+/* FOOTER */
+.page-footer { background:white; border-top:1px solid var(--border); padding:1.25rem 2rem;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-top:auto; }
+.footer-copy { font-size:.75rem; color:var(--text-faint); }
+.footer-links { display:flex; gap:1.5rem; flex-wrap:wrap; }
+.footer-links a { font-size:.8rem; color:var(--text-muted); text-decoration:none; }
+.footer-links a:hover { color:var(--teal-dark); }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a href="dashboard.html" class="brand">Opticare AI</a>
+  <div class="topnav-right">
+    <div class="icon-btn">🔔</div>
+    <div class="icon-btn">❓</div>
+    <div class="user-chip">
+      <span id="user-initials">ME</span>
+      <div class="dropdown"><button onclick="handleLogout()">🚪 Sign Out</button></div>
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">👁️</div>
+      <div class="sidebar-brand-text">
+        <strong>Opticare AI</strong>
+        <span>Eye Health Portal</span>
+      </div>
+    </div>
+
+    <nav class="nav-group">
+      <a href="dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        My Dashboard
+      </a>
+      <a href="scan.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        New Scan
+      </a>
+      <a href="history.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        My History
+      </a>
+      <div class="nav-divider"></div>
+      <a href="settings.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </a>
+      <a href="#" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Help & Support
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-footer">
+      <button class="start-scan-btn" onclick="window.location.href='scan.html'">
+        👁️ New Eye Scan
+      </button>
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="sidebar-initials">ME</div>
+        <div>
+          <div class="sidebar-user-name" id="sidebar-name">My Account</div>
+          <div class="sidebar-user-role">Patient</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-inner">
+
+      <div>
+        <div class="page-title">Account Settings</div>
+        <p class="page-desc">Manage your personal profile, view your eye health summary, and configure notifications.</p>
+      </div>
+
+      <!-- TOP GRID -->
+      <div class="top-grid">
+
+        <!-- PROFILE CARD -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-head-icon">👤</div>
+            <div>
+              <div class="card-head-title">My Profile</div>
+              <div class="card-head-sub">Your personal and contact details</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-input" id="inp-name" type="text" placeholder="Your full name"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date of Birth</label>
+                <input class="form-input" id="inp-dob" type="date"/>
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Email Address</label>
+                <input class="form-input" id="inp-email" type="email" readonly placeholder="your@email.com"/>
+              </div>
+            </div>
+            <button class="save-btn" id="save-btn" onclick="saveProfile()">Save Profile</button>
+          </div>
+        </div>
+
+        <!-- EYE HEALTH SUMMARY -->
+        <div class="usage-card">
+          <div class="usage-title">👁️ My Eye Health Summary</div>
+          <div class="usage-stat">
+            <div class="usage-stat-label">Total Scans</div>
+            <div class="usage-stat-val" id="stat-scans">—</div>
+            <div class="usage-stat-sub">All-time retinal scans</div>
+          </div>
+          <div class="usage-stat">
+            <div class="usage-stat-label">Flagged Results</div>
+            <div class="usage-stat-val" id="stat-flagged">—</div>
+            <div class="usage-stat-sub">Scans needing attention</div>
+          </div>
+          <button class="download-btn" onclick="window.location.href='history.html'">
+            📋 View Full History
+          </button>
+        </div>
+
+      </div>
+
+      <!-- BOTTOM GRID -->
+      <div class="bottom-grid">
+
+        <!-- NOTIFICATIONS -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-head-icon">🔔</div>
+            <div>
+              <div class="card-head-title">Notification Hub</div>
+              <div class="card-head-sub">Control how you receive health alerts</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="toggle-row">
+              <div class="toggle-left">
+                <div class="toggle-icon">✉️</div>
+                <div>
+                  <div class="toggle-label">Email Notifications</div>
+                  <div class="toggle-sublabel">Scan results and health updates</div>
+                </div>
+              </div>
+              <label class="toggle"><input type="checkbox" checked/><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-left">
+                <div class="toggle-icon">🖥️</div>
+                <div>
+                  <div class="toggle-label">Desktop Alerts</div>
+                  <div class="toggle-sublabel">Browser notifications for new results</div>
+                </div>
+              </div>
+              <label class="toggle"><input type="checkbox" checked/><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-left">
+                <div class="toggle-icon">📱</div>
+                <div>
+                  <div class="toggle-label">SMS Alerts</div>
+                  <div class="toggle-sublabel">Text message for flagged results</div>
+                </div>
+              </div>
+              <label class="toggle"><input type="checkbox"/><span class="toggle-track"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECURITY -->
+        <div class="security-card">
+          <div class="security-head">
+            <div class="security-head-icon">🛡️</div>
+            <div>
+              <div class="security-head-title">Security & Access</div>
+              <div class="security-head-sub">Sensitive account management actions</div>
+            </div>
+          </div>
+          <div class="security-body">
+            <div class="security-warning">
+              <strong>Warning:</strong> Changes here are permanent. Deleting your account will remove all your scan history and personal health data linked to your profile.
+            </div>
+            <div class="security-actions">
+              <button class="btn-signout" onclick="handleLogout()"><span>↪</span> Sign Out</button>
+              <button class="btn-delete" onclick="confirmDelete()"><span>🗑</span> Delete Account</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="page-footer">
+      <div class="footer-copy">©️ 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.</div>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Regulatory Compliance</a>
+        <a href="#">Contact</a>
+      </div>
+    </footer>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — Create Account</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
+    authDomain: "opticare-ai-4bd34.firebaseapp.com",
+    projectId: "opticare-ai-4bd34",
+    storageBucket: "opticare-ai-4bd34.firebasestorage.app",
+    messagingSenderId: "630632927138",
+    appId: "1:630632927138:web:585517ff40a60c2165ecfb"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) window.location.href = "diagnose.html";
+  });
+
+  function showMsg(msg, isSuccess = false) {
+    const el = document.getElementById("error-msg");
+    el.textContent = msg;
+    el.style.display = "block";
+    el.style.background = isSuccess ? "#F0FDF4" : "#FEF2F2";
+    el.style.borderColor = isSuccess ? "#86EFAC" : "#FECACA";
+    el.style.color = isSuccess ? "#166534" : "#DC2626";
+  }
+
+  function setLoading(loading) {
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = loading;
+    btn.textContent = loading ? "Please wait..." : "Create Account";
+  }
+
+  const errorMessages = {
+    "auth/email-already-in-use": "This email is already registered. Sign in instead.",
+    "auth/invalid-email": "Please enter a valid email address.",
+    "auth/weak-password": "Password must be at least 6 characters."
+  };
+
+  window.handleRegister = async function() {
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const agreed = document.getElementById("agree").checked;
+
+    if (!name || !email || !password) return showMsg("Please fill in all required fields.");
+    if (!agreed) return showMsg("Please agree to the Terms of Service to continue.");
+    if (password.length < 8) return showMsg("Password must be at least 8 characters.");
+    if (!/[A-Z]/.test(password)) return showMsg("Password must include at least one uppercase letter.");
+    if (!/[!@#$%^&*]/.test(password)) return showMsg("Password must include at least one symbol (!@#$%^&*).");
+
+    setLoading(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        name, email,
+        createdAt: new Date().toISOString(),
+        totalScans: 0
+      });
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      showMsg(errorMessages[err.code] || "Something went wrong. Please try again.");
+    }
+    setLoading(false);
+  }
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --teal: #0F6E56; --teal-light: #E1F5EE; --teal-mid: #1D9E75; --teal-dark: #085041;
+    --text: #1a1a1a; --text-muted: #6b7280; --bg-white: #ffffff; --border: #e5e7eb;
+  }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--bg-white); min-height: 100vh; display: flex; flex-direction: column; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 1rem 4%; background: white; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+  .logo { font-weight: 600; font-size: 1rem; color: var(--teal-dark); text-decoration: none; display: flex; align-items: center; gap: 7px; }
+  .logo-dot { width: 9px; height: 9px; background: var(--teal-mid); border-radius: 50%; }
+  .nav-center { display: flex; gap: 2rem; }
+  .nav-center a { font-size: 0.9rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+  .nav-center a:hover { color: var(--teal); }
+  .btn-nav { padding: 0.5rem 1.3rem; background: var(--teal-dark); color: white; border: none; border-radius: 8px; font-family: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; text-decoration: none; }
+
+  .page-wrap { flex: 1; display: grid; grid-template-columns: 420px 1fr; }
+
+  /* LEFT */
+  .left-panel { background: #f0f5f3; padding: 4rem 3rem; display: flex; flex-direction: column; justify-content: center; }
+  .hipaa-badge { display: inline-flex; align-items: center; gap: 7px; background: white; border: 1px solid var(--border); color: var(--teal-dark); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.4rem 1rem; border-radius: 8px; margin-bottom: 2.5rem; width: fit-content; }
+  .left-panel h1 { font-family: 'DM Serif Display', serif; font-size: clamp(2.4rem, 3.2vw, 3rem); line-height: 1.1; color: var(--text); margin-bottom: 1.25rem; }
+  .left-panel > p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; max-width: 340px; margin-bottom: 2.5rem; }
+  .feature-list { display: flex; flex-direction: column; gap: 0.85rem; }
+  .feature-item { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 12px; }
+  .feature-icon { font-size: 1.1rem; margin-top: 2px; flex-shrink: 0; }
+  .feature-item h4 { font-size: 0.88rem; font-weight: 600; color: var(--teal-dark); margin-bottom: 0.2rem; }
+  .feature-item p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+
+  /* RIGHT */
+  .right-panel { padding: 4rem 5rem; display: flex; flex-direction: column; justify-content: center; }
+  .right-panel h2 { font-family: 'DM Serif Display', serif; font-size: 2rem; margin-bottom: 0.4rem; }
+  .right-panel .subtitle { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem; }
+
+  .divider { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-text { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+
+  .error-msg { display: none; font-size: 0.85rem; padding: 0.65rem 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.5rem; }
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 0.83rem; font-weight: 500; }
+  .input-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon { position: absolute; left: 12px; color: var(--text-muted); font-size: 0.85rem; pointer-events: none; }
+  .field input { width: 100%; padding: 0.7rem 1rem 0.7rem 2.4rem; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 0.92rem; color: var(--text); background: white; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+  .field input:focus { border-color: var(--teal-mid); box-shadow: 0 0 0 3px rgba(29,158,117,0.1); }
+  .field-hint { font-size: 0.75rem; color: var(--text-muted); }
+
+  .agree-row { display: flex; align-items: flex-start; gap: 10px; margin: 1rem 0 1.25rem; }
+  .agree-row input[type="checkbox"] { margin-top: 3px; accent-color: var(--teal); width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+  .agree-row label { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; cursor: pointer; }
+  .agree-row a { color: var(--teal); text-decoration: none; }
+  .agree-row a:hover { text-decoration: underline; }
+
+  .btn-submit { width: 100%; padding: 0.85rem; background: var(--teal-dark); color: white; border: none; border-radius: 10px; font-family: inherit; font-size: 1rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+  .btn-submit:hover { background: var(--teal); }
+  .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .signin-link { text-align: center; font-size: 0.88rem; color: var(--text-muted); margin-top: 1.25rem; }
+  .signin-link a { color: var(--teal); font-weight: 600; text-decoration: none; }
+  .signin-link a:hover { text-decoration: underline; }
+
+  footer { border-top: 1px solid var(--border); padding: 1.5rem 4%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+  .footer-left p { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .footer-links a { font-size: 0.78rem; color: var(--text-muted); text-decoration: none; text-transform: uppercase; letter-spacing: 0.05em; }
+  .footer-links a:hover { color: var(--teal); }
+
+  @media (max-width: 900px) {
+    .page-wrap { grid-template-columns: 1fr; }
+    .left-panel { padding: 2.5rem 2rem; }
+    .right-panel { padding: 2.5rem 2rem; }
+    .form-grid { grid-template-columns: 1fr; }
+    .nav-center { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="logo-dot"></div>Opticare AI</a>
+  <div class="nav-center">
+    <a href="#">Product</a>
+    <a href="#">Clinical Research</a>
+    <a href="#">Security</a>
+  </div>
+  <a href="login.html" class="btn-nav">Sign In</a>
+</nav>
+
+<div class="page-wrap">
+  <div class="left-panel">
+    <div class="hipaa-badge">🛡️ HIPAA Certified Environment</div>
+    <h1>Elevate your diagnostic precision.</h1>
+    <p>Join the next generation of ophthalmological care with AI-driven insights that augment clinical expertise.</p>
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="feature-icon">🛡️</div>
+        <div><h4>HIPAA Compliant Diagnostics</h4><p>Enterprise-grade security ensuring patient data remains private and protected.</p></div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🔬</div>
+        <div><h4>Real-time Retinal Analysis</h4><p>Sub-second processing of high-res OCT and fundus imagery with 99.4% accuracy.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <h2>Create your account</h2>
+    <p class="subtitle">Register to access AI-powered diagnostic tools.</p>
+
+    <div id="error-msg" class="error-msg"></div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Full Name</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" id="name" placeholder="Jane Smith" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <div class="input-wrap">
+          <span class="input-icon">✉️</span>
+          <input type="email" id="email" placeholder="jane@example.com" />
+        </div>
+      </div>
+      <div class="field full">
+        <label>Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="password" placeholder="••••••••" />
+        </div>
+        <span class="field-hint">Must include 8+ characters, one uppercase, and one symbol.</span>
+      </div>
+    </div>
+
+    <div class="agree-row">
+      <input type="checkbox" id="agree" />
+      <label for="agree">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</label>
+    </div>
+
+    <button class="btn-submit" id="submit-btn" onclick="handleRegister()">Create Account</button>
+    <p class="signin-link">Already have an account? <a href="login.html">Sign In</a></p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-left">
+    <div class="logo"><div class="logo-dot"></div>Opticare AI</div>
+    <p>©️ 2024 Opticare AI. Clinical-Grade Diagnostic Precision.</p>
+  </div>
+  <div class="footer-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">Terms of Service</a>
+    <a href="#">HIPAA Compliance</a>
+    <a href="#">Contact Support</a>
+  </div>
+</footer>
+
+</body>
+</html>

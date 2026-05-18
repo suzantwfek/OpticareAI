@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
+    authDomain: "opticare-ai-4bd34.firebaseapp.com",
+    projectId: "opticare-ai-4bd34",
+    storageBucket: "opticare-ai-4bd34.firebasestorage.app",
+    messagingSenderId: "630632927138",
+    appId: "1:630632927138:web:585517ff40a60c2165ecfb"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const googleProvider = new GoogleAuthProvider();
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) window.location.href = "dashboard.html";
+  });
+
+  function showMsg(msg, isSuccess = false) {
+    const el = document.getElementById("error-msg");
+    el.textContent = msg;
+    el.style.display = "block";
+    el.style.background = isSuccess ? "#F0FDF4" : "#FEF2F2";
+    el.style.borderColor = isSuccess ? "#86EFAC" : "#FECACA";
+    el.style.color = isSuccess ? "#166534" : "#DC2626";
+  }
+
+  function setLoading(loading) {
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = loading;
+    btn.innerHTML = loading ? "Please wait..." : "Sign In →";
+  }
+
+  const errorMessages = {
+    "auth/user-not-found": "No account found with this email.",
+    "auth/wrong-password": "Incorrect password.",
+    "auth/invalid-email": "Please enter a valid email address.",
+    "auth/too-many-requests": "Too many attempts. Please try again later.",
+    "auth/invalid-credential": "Invalid email or password.",
+    "auth/popup-closed-by-user": "Google sign-in was cancelled."
+  };
+
+  window.handleLogin = async function() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    if (!email || !password) return showMsg("Please fill in all fields.");
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      showMsg(errorMessages[err.code] || "Something went wrong. Please try again.");
+    }
+    setLoading(false);
+  }
+
+  window.handleGoogle = async function() {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        await setDoc(doc(db, "users", user.uid), {
+          name: user.displayName || "",
+          email: user.email,
+          createdAt: new Date().toISOString(),
+          totalScans: 0
+        });
+      }
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      showMsg(errorMessages[err.code] || "Google sign-in failed.");
+    }
+  }
+
+  window.handleForgotPassword = async function() {
+    const email = document.getElementById("email").value.trim();
+    if (!email) return showMsg("Enter your email first, then click Forgot Password.");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showMsg("Password reset email sent! Check your inbox.", true);
+    } catch (err) {
+      showMsg("Could not send reset email. Check your email address.");
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") window.handleLogin();
+  });
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --teal: #0F6E56; --teal-light: #E1F5EE; --teal-mid: #1D9E75; --teal-dark: #085041;
+    --text: #1a1a1a; --text-muted: #6b7280; --bg: #f4f7f6; --bg-white: #ffffff; --border: #e5e7eb;
+  }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 5%; background: var(--bg-white); border-bottom: 1px solid var(--border); }
+  .logo { font-weight: 600; font-size: 1rem; color: var(--teal-dark); text-decoration: none; display: flex; align-items: center; gap: 7px; }
+  .logo-dot { width: 9px; height: 9px; background: var(--teal-mid); border-radius: 50%; }
+  .nav-right { display: flex; gap: 1.5rem; }
+  .nav-right a { font-size: 0.9rem; color: var(--text-muted); text-decoration: none; }
+  .nav-right a:hover { color: var(--teal); }
+
+  main { flex: 1; display: grid; grid-template-columns: 1fr 460px; gap: 0; max-width: 1080px; width: 100%; margin: 0 auto; padding: 4rem 2rem; align-items: center; }
+
+  .left-panel { padding-right: 3.5rem; }
+  .secure-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--teal-light); color: var(--teal); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.9rem; border-radius: 999px; margin-bottom: 1.75rem; }
+  .left-panel h1 { font-family: 'DM Serif Display', serif; font-size: clamp(2.4rem, 4vw, 3.2rem); line-height: 1.1; margin-bottom: 1.25rem; }
+  .left-panel p { color: var(--text-muted); font-size: 1rem; line-height: 1.7; max-width: 420px; margin-bottom: 2.5rem; }
+
+  .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .info-card { background: var(--bg-white); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+  .info-card-icon { font-size: 1.2rem; margin-bottom: 0.75rem; }
+  .info-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--teal-dark); }
+  .info-card p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+
+  .form-card { background: var(--bg-white); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; box-shadow: 0 10px 40px rgba(0,0,0,0.07); }
+  .form-card h2 { font-family: 'DM Serif Display', serif; font-size: 1.9rem; margin-bottom: 0.4rem; }
+  .form-card .subtitle { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem; }
+
+  .field { margin-bottom: 1.1rem; }
+  .field-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+  .field-label label { font-size: 0.85rem; font-weight: 500; }
+  .forgot-link { font-size: 0.82rem; color: var(--teal); cursor: pointer; text-decoration: none; background: none; border: none; font-family: inherit; padding: 0; }
+  .forgot-link:hover { text-decoration: underline; }
+  .input-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon { position: absolute; left: 12px; color: var(--text-muted); font-size: 0.95rem; pointer-events: none; }
+  .field input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 0.95rem; color: var(--text); background: #fafafa; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+  .field input:focus { border-color: var(--teal-mid); background: white; box-shadow: 0 0 0 3px rgba(29,158,117,0.1); }
+
+  .error-msg { display: none; font-size: 0.85rem; padding: 0.65rem 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid; }
+
+  .btn-signin { width: 100%; padding: 0.85rem; background: var(--teal-dark); color: white; border: none; border-radius: 10px; font-family: inherit; font-size: 1rem; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-bottom: 1.25rem; }
+  .btn-signin:hover { background: var(--teal); }
+  .btn-signin:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .divider { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-text { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+
+  .btn-social { width: 100%; padding: 0.75rem; background: white; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text); transition: background 0.2s; margin-bottom: 0.75rem; }
+  .btn-social:hover { background: #f9fafb; }
+
+  .create-account { text-align: center; font-size: 0.88rem; color: var(--text-muted); margin-top: 1.25rem; }
+  .create-account a { color: var(--teal); font-weight: 600; text-decoration: none; }
+  .create-account a:hover { text-decoration: underline; }
+
+  footer { border-top: 1px solid var(--border); padding: 1.5rem 5%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; background: var(--bg-white); }
+  .footer-left p { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .footer-links a { font-size: 0.78rem; color: var(--text-muted); text-decoration: none; text-transform: uppercase; letter-spacing: 0.05em; }
+  .footer-links a:hover { color: var(--teal); }
+
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; padding: 2rem 1.25rem; } .left-panel { padding-right: 0; margin-bottom: 2rem; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="logo-dot"></div>Opticare AI</a>
+  <div class="nav-right"><a href="#">Help</a><a href="#">Privacy</a></div>
+</nav>
+
+<main>
+  <div class="left-panel">
+    <div class="secure-badge">🛡️ Secure Clinical Access</div>
+    <h1>Precision Diagnostics Augmented by AI.</h1>
+    <p>Access your clinical dashboard to review AI-confirmed patient findings, diagnostic history, and laboratory intelligence in real-time.</p>
+    <div class="info-cards">
+      <div class="info-card">
+        <div class="info-card-icon">🏥</div>
+        <h4>HIPAA Ready</h4>
+        <p>Enterprise-grade security for patient data confidentiality.</p>
+      </div>
+      <div class="info-card">
+        <div class="info-card-icon">🧠</div>
+        <h4>Neural Insights</h4>
+        <p>99.8% accuracy in preliminary laboratory screening.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h2>Welcome Back</h2>
+    <p class="subtitle">Please enter your medical credentials to proceed.</p>
+    <div id="error-msg" class="error-msg"></div>
+    <div class="field">
+      <div class="field-label"><label>Medical Email Address</label></div>
+      <div class="input-wrap">
+        <span class="input-icon">✉️</span>
+        <input type="email" id="email" placeholder="name@institution.edu" />
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">
+        <label>Security Password</label>
+        <button class="forgot-link" onclick="handleForgotPassword()">Forgot Password?</button>
+      </div>
+      <div class="input-wrap">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="password" placeholder="••••••••" />
+      </div>
+    </div>
+    <button class="btn-signin" id="submit-btn" onclick="handleLogin()">Sign In →</button>
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-text">Identity Verification</span>
+      <div class="divider-line"></div>
+    </div>
+    <p class="create-account">New to Opticare AI? <a href="register.html">Create an account</a></p>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-left">
+    <div class="logo"><div class="logo-dot"></div>Opticare AI</div>
+    <p>© 2024 Opticare AI. Clinical-Grade Diagnostic Intelligence.</p>
+  </div>
+  <div class="footer-links">
+    <a href="#">Terms of Service</a>
+    <a href="#">Privacy Policy</a>
+    <a href="#">HIPAA Compliance</a>
+    <a href="#">Security</a>
+  </div>
+</footer>
+
+</body>
+</html>

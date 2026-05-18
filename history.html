@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — My Scan History</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
+    authDomain: "opticare-ai-4bd34.firebaseapp.com",
+    projectId: "opticare-ai-4bd34",
+    storageBucket: "opticare-ai-4bd34.firebasestorage.app",
+    messagingSenderId: "630632927138",
+    appId: "1:630632927138:web:585517ff40a60c2165ecfb"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  let allScans = [];
+  let filtered = [];
+  let currentPage = 1;
+  const perPage = 10;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = "login.html"; return; }
+
+    const snap = await getDoc(doc(db, "users", user.uid));
+    const name = snap.exists() ? snap.data().name : user.email;
+    const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2);
+    document.getElementById("user-initials").textContent = initials;
+    document.getElementById("sidebar-initials").textContent = initials;
+    document.getElementById("sidebar-name").textContent = name;
+
+    const q = query(collection(db, "users", user.uid, "scans"), orderBy("timestamp","desc"));
+    const qSnap = await getDocs(q);
+    allScans = [];
+    qSnap.forEach(d => allScans.push({ id: d.id, ...d.data() }));
+    filtered = [...allScans];
+
+    updateStats();
+    renderTable();
+    renderPagination();
+  });
+
+  function updateStats() {
+    const total = allScans.length;
+    const flagged = allScans.filter(s => s.isGlaucoma || (s.prediction && s.prediction !== "Normal")).length;
+    const normal  = allScans.filter(s => !s.isGlaucoma && (!s.prediction || s.prediction === "Normal")).length;
+    const avgConf = total > 0 ? (allScans.reduce((a,s) => a + parseFloat(s.confidence||0), 0) / total).toFixed(1) : 0;
+
+    document.getElementById("stat-total").textContent   = total;
+    document.getElementById("stat-normal").textContent  = normal;
+    document.getElementById("stat-flagged").textContent = flagged;
+    document.getElementById("stat-avgconf").textContent = avgConf + "%";
+    drawMiniCircle(parseFloat(avgConf));
+  }
+
+  function drawMiniCircle(val) {
+    const canvas = document.getElementById("mini-circle");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const cx = 40, cy = 40, r = 32;
+    ctx.clearRect(0,0,80,80);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle="#e5e7eb"; ctx.lineWidth=7; ctx.stroke();
+    const end = (val/100)*Math.PI*2 - Math.PI/2;
+    ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,end);
+    ctx.strokeStyle="#085041"; ctx.lineWidth=7; ctx.lineCap="round"; ctx.stroke();
+    ctx.fillStyle="#111827"; ctx.font="bold 11px DM Sans"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(Math.round(val)+"%", cx, cy);
+  }
+
+  function renderTable() {
+    const start = (currentPage-1)*perPage;
+    const pageData = filtered.slice(start, start+perPage);
+    const tbody = document.getElementById("table-body");
+    tbody.innerHTML = "";
+
+    if (pageData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:3.5rem;color:var(--text-muted);">
+        <div style="font-size:2rem;margin-bottom:.75rem;">🔬</div>
+        <div style="font-weight:600;margin-bottom:.4rem;color:var(--text);">No scans found</div>
+        <div style="font-size:.85rem;">
+          <a href="scan.html" style="color:var(--teal-mid);font-weight:500;">Start your first scan →</a>
+        </div>
+      </td></tr>`;
+      document.getElementById("showing-text").textContent = "No scans found";
+      return;
+    }
+
+    pageData.forEach((scan, i) => {
+      const date = new Date(scan.timestamp);
+      const dateStr = date.toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+      const timeStr = date.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit" });
+      const isAbnormal = scan.isGlaucoma || (scan.prediction && scan.prediction !== "Normal");
+      const conf = parseFloat(scan.confidence || 0);
+      const label = scan.prediction || (scan.isAbnormal ? "Glaucoma" : "Normal");
+
+      let statusLabel, statusStyle;
+      if (isAbnormal) {
+        statusLabel = "⚠ Needs Attention";
+        statusStyle = "background:#FEE2E2;color:#DC2626;";
+      } else if (conf >= 90) {
+        statusLabel = "✓ Normal";
+        statusStyle = "background:#D1FAE5;color:#065F46;";
+      } else {
+        statusLabel = "⏱ Follow-up";
+        statusStyle = "background:#F3F4F6;color:#6B7280;";
+      }
+
+      const scanNum = String(start + i + 1).padStart(3, "0");
+
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:38px;height:38px;border-radius:10px;background:var(--teal-light);
+              display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">👁️</div>
+            <div>
+              <div style="font-weight:600;font-size:.88rem;">Scan #${scanNum}</div>
+              <div style="font-size:.74rem;color:var(--text-faint);">#SC-${scan.id.slice(-6).toUpperCase()}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div style="font-size:.85rem;font-weight:500;">${dateStr}</div>
+          <div style="font-size:.74rem;color:var(--text-muted);">${timeStr}</div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;height:5px;background:#e5e7eb;border-radius:999px;overflow:hidden;max-width:80px;">
+              <div style="height:100%;width:${conf}%;background:${isAbnormal?"#DC2626":"#085041"};border-radius:999px;"></div>
+            </div>
+            <span style="font-size:.82rem;font-weight:500;">${conf}%</span>
+          </div>
+        </td>
+        <td><span style="padding:.3rem .8rem;border-radius:999px;font-size:.75rem;font-weight:600;${statusStyle}">${statusLabel}</span></td>
+        <td>
+          <button onclick="viewScan('${JSON.stringify(scan).replace(/'/g,"").replace(/"/g,"&quot;")}')"
+            style="padding:.35rem .9rem;background:none;border:1px solid var(--border);border-radius:7px;
+            font-family:inherit;font-size:.8rem;font-weight:500;color:var(--text-soft);cursor:pointer;transition:all .15s;"
+            onmouseover="this.style.background='var(--teal-light)';this.style.borderColor='var(--teal-mid)';this.style.color='var(--teal-dark)'"
+            onmouseout="this.style.background='none';this.style.borderColor='var(--border)';this.style.color='var(--text-soft)'">
+            View Report
+          </button>
+        </td>`;
+      tbody.appendChild(row);
+    });
+
+    document.getElementById("showing-text").textContent =
+      `Showing ${start+1}–${Math.min(start+perPage, filtered.length)} of ${filtered.length} scans`;
+  }
+
+  function renderPagination() {
+    const total = Math.ceil(filtered.length / perPage);
+    const container = document.getElementById("pagination");
+    container.innerHTML = "";
+
+    const prev = document.createElement("button");
+    prev.className = "page-btn"; prev.textContent = "‹";
+    prev.disabled = currentPage === 1;
+    prev.onclick = () => { if(currentPage>1){currentPage--;renderTable();renderPagination();} };
+    container.appendChild(prev);
+
+    for (let i=1; i<=Math.min(total,5); i++) {
+      const btn = document.createElement("button");
+      btn.className = "page-btn" + (i===currentPage?" active":"");
+      btn.textContent = i;
+      btn.onclick = () => { currentPage=i; renderTable(); renderPagination(); };
+      container.appendChild(btn);
+    }
+
+    const next = document.createElement("button");
+    next.className = "page-btn"; next.textContent = "›";
+    next.disabled = currentPage === total || total === 0;
+    next.onclick = () => { if(currentPage<total){currentPage++;renderTable();renderPagination();} };
+    container.appendChild(next);
+  }
+
+  window.searchScans = function(val) {
+    val = val.toLowerCase();
+    filtered = allScans.filter(s =>
+      (s.prediction||"").toLowerCase().includes(val) ||
+      s.id.toLowerCase().includes(val)
+    );
+    currentPage = 1;
+    renderTable();
+    renderPagination();
+  }
+
+  window.viewScan = function(scanJson) {
+    const scan = JSON.parse(scanJson.replace(/&quot;/g,'"'));
+    sessionStorage.setItem("lastResult", JSON.stringify({
+      prediction: scan.prediction,
+      confidence: scan.confidence,
+      is_glaucoma: scan.isGlaucoma
+    }));
+    window.location.href = "results.html";
+  }
+
+  window.exportCSV = function() {
+    const rows = [["Scan ID","Result","Confidence","Glaucoma","Date"]];
+    allScans.forEach(s => rows.push([
+      "#SC-"+s.id.slice(-6).toUpperCase(),
+      s.prediction||"",
+      s.confidence||"",
+      s.isGlaucoma?"Yes":"No",
+      s.timestamp
+    ]));
+    const csv = rows.map(r => r.join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv," + encodeURIComponent(csv);
+    a.download = "my_eye_scans.csv"; a.click();
+  }
+
+  window.handleLogout = () => signOut(auth).then(() => window.location.href = "login.html");
+</script>
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --teal-dark:#085041; --teal:#0F6E56; --teal-mid:#1D9E75;
+  --teal-light:#E1F5EE; --teal-pale:#f4fbf8;
+  --text:#111827; --text-soft:#374151; --text-muted:#6b7280; --text-faint:#9ca3af;
+  --bg:#eef4f2; --white:#ffffff; --border:#e5e7eb; --sidebar-w:235px;
+}
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text);
+  display:flex; flex-direction:column; min-height:100vh; }
+
+/* TOP NAV */
+.topnav { background:var(--white); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 1.5rem; height:52px; gap:2rem;
+  position:sticky; top:0; z-index:100; }
+.brand { font-weight:700; font-size:1.05rem; color:var(--teal-dark); white-space:nowrap; text-decoration:none; }
+.topnav-right { margin-left:auto; display:flex; align-items:center; gap:.75rem; }
+.icon-btn { width:34px; height:34px; border-radius:8px; background:var(--bg); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; transition:background .15s; }
+.icon-btn:hover { background:var(--teal-light); }
+.user-chip { width:34px; height:34px; background:var(--teal-dark); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:700;
+  color:white; cursor:pointer; position:relative; }
+.user-chip .dropdown { position:absolute; top:42px; right:0; background:white; border:1px solid var(--border);
+  border-radius:10px; padding:.5rem; min-width:140px; box-shadow:0 8px 24px rgba(0,0,0,.1);
+  display:none; z-index:200; }
+.user-chip:hover .dropdown { display:block; }
+.dropdown button { width:100%; padding:.4rem .6rem; background:none; border:none;
+  font-family:inherit; font-size:.85rem; color:#ef4444; cursor:pointer; text-align:left; border-radius:6px; }
+.dropdown button:hover { background:#fef2f2; }
+
+/* LAYOUT */
+.layout { display:flex; flex:1; }
+
+/* SIDEBAR */
+.sidebar { width:var(--sidebar-w); background:var(--white); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; padding:1.25rem .9rem;
+  position:sticky; top:52px; height:calc(100vh - 52px); overflow-y:auto; flex-shrink:0; }
+.sidebar-brand { display:flex; align-items:center; gap:10px; padding:.75rem; background:var(--teal-light);
+  border-radius:12px; margin-bottom:1.5rem; }
+.sidebar-brand-icon { width:38px; height:38px; background:var(--teal-dark); border-radius:9px;
+  display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
+.sidebar-brand-text strong { font-size:.9rem; color:var(--teal-dark); display:block; line-height:1.2; }
+.sidebar-brand-text span { font-size:.67rem; color:var(--teal-mid); text-transform:uppercase; letter-spacing:.07em; }
+.nav-group { display:flex; flex-direction:column; gap:2px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:.62rem .85rem; border-radius:10px;
+  color:var(--text-muted); font-size:.875rem; text-decoration:none; transition:all .15s;
+  border:none; background:none; font-family:inherit; width:100%; cursor:pointer; }
+.nav-item:hover { background:var(--bg); color:var(--text-soft); }
+.nav-item.active { background:var(--teal-light); color:var(--teal-dark); font-weight:600; }
+.nav-item svg { width:18px; height:18px; flex-shrink:0; opacity:.7; }
+.nav-item.active svg { opacity:1; }
+.nav-divider { height:1px; background:var(--border); margin:.6rem 0; }
+.sidebar-spacer { flex:1; }
+.sidebar-footer { display:flex; flex-direction:column; gap:8px; }
+.start-scan-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+  padding:.75rem; background:var(--teal-dark); color:white; border:none; border-radius:10px;
+  font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .2s; }
+.start-scan-btn:hover { background:var(--teal); }
+.sidebar-user { display:flex; align-items:center; gap:9px; padding:.6rem .5rem; margin-top:4px; }
+.sidebar-avatar { width:32px; height:32px; background:var(--teal-dark); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:700; color:white; flex-shrink:0; }
+.sidebar-user-name { font-size:.8rem; font-weight:600; color:var(--text); line-height:1.2; }
+.sidebar-user-role { font-size:.7rem; color:var(--text-muted); }
+
+/* MAIN */
+.main { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
+.main-inner { padding:2rem 2rem 0; flex:1; display:flex; flex-direction:column; gap:1.75rem; }
+
+/* PAGE HEADER */
+.breadcrumb { font-size:.78rem; color:var(--text-muted); margin-bottom:.5rem; }
+.breadcrumb a { color:var(--text-muted); text-decoration:none; }
+.breadcrumb a:hover { color:var(--teal-mid); }
+.breadcrumb span { color:var(--text-soft); }
+.header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.page-title { font-family:'DM Serif Display',serif; font-size:2rem; }
+.page-desc { font-size:.88rem; color:var(--text-muted); line-height:1.65; max-width:480px; margin-top:.35rem; }
+.search-row { display:flex; align-items:center; gap:.75rem; }
+.search-wrap { display:flex; align-items:center; gap:.5rem; background:var(--white);
+  border:1px solid var(--border); border-radius:10px; padding:.5rem 1rem; min-width:240px; }
+.search-wrap input { border:none; outline:none; font-family:inherit; font-size:.88rem; background:transparent; width:100%; }
+
+/* STATS */
+.stats-row { display:grid; grid-template-columns:1fr 1fr 1fr 1.4fr; gap:1rem; }
+.stat-card { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:1.25rem 1.5rem; }
+.stat-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
+.stat-icon { width:28px; height:28px; background:var(--bg); border-radius:7px;
+  display:flex; align-items:center; justify-content:center; font-size:.85rem; }
+.stat-label { font-size:.78rem; color:var(--text-muted); margin-bottom:.3rem; }
+.stat-value { font-family:'DM Serif Display',serif; font-size:1.9rem; }
+.stat-value.teal { color:var(--teal-mid); }
+.stat-value.red { color:#DC2626; }
+.stat-card.wide { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.stat-wide-value { font-family:'DM Serif Display',serif; font-size:2rem; color:var(--teal-dark); }
+.stat-wide-sub { font-size:.76rem; color:var(--text-muted); margin-top:.2rem; }
+
+/* TABLE */
+.table-section { background:var(--white); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+.table-header { display:flex; align-items:center; justify-content:space-between;
+  padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); }
+.table-title { font-size:1rem; font-weight:600; }
+.table-actions { display:flex; gap:.75rem; }
+.btn-export { padding:.5rem 1rem; background:var(--white); border:1px solid var(--border);
+  border-radius:8px; font-family:inherit; font-size:.83rem; cursor:pointer;
+  display:flex; align-items:center; gap:6px; transition:background .15s; }
+.btn-export:hover { background:var(--bg); }
+.btn-newscan { padding:.5rem 1.1rem; background:var(--teal-dark); color:white; border:none;
+  border-radius:8px; font-family:inherit; font-size:.83rem; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; gap:6px; transition:background .2s; }
+.btn-newscan:hover { background:var(--teal); }
+
+table { width:100%; border-collapse:collapse; }
+thead tr { border-bottom:1px solid var(--border); }
+th { padding:.85rem 1.25rem; text-align:left; font-size:.7rem; font-weight:700;
+  color:var(--text-faint); text-transform:uppercase; letter-spacing:.07em; background:var(--teal-pale); }
+td { padding:1rem 1.25rem; border-bottom:1px solid #f9fafb; vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:#fafafa; }
+
+/* PAGINATION */
+.table-footer { display:flex; align-items:center; justify-content:space-between;
+  padding:1rem 1.5rem; border-top:1px solid var(--border); }
+.showing-text { font-size:.82rem; color:var(--text-muted); }
+.pagination { display:flex; gap:.4rem; }
+.page-btn { width:34px; height:34px; border-radius:8px; border:1px solid var(--border);
+  background:var(--white); font-family:inherit; font-size:.85rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:all .15s; }
+.page-btn:hover { background:var(--bg); }
+.page-btn.active { background:var(--teal-dark); color:white; border-color:var(--teal-dark); }
+.page-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* FOOTER */
+.page-footer { background:white; border-top:1px solid var(--border); padding:1.5rem 2rem;
+  display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-top:1.75rem; }
+.footer-brand { font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--teal-dark); margin-bottom:.25rem; }
+.footer-copy { font-size:.75rem; color:var(--text-faint); line-height:1.6; }
+.footer-links { display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center; }
+.footer-links a { font-size:.8rem; color:var(--text-muted); text-decoration:none; }
+.footer-links a:hover { color:var(--teal-dark); }
+
+@media (max-width:900px) {
+  .stats-row { grid-template-columns:1fr 1fr; }
+  .stat-card.wide { grid-column:1/-1; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a href="dashboard.html" class="brand">Opticare AI</a>
+  <div class="topnav-right">
+    <div class="icon-btn">🔔</div>
+    <div class="icon-btn">⚙️</div>
+    <div class="user-chip">
+      <span id="user-initials">ME</span>
+      <div class="dropdown"><button onclick="handleLogout()">🚪 Sign Out</button></div>
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">👁️</div>
+      <div class="sidebar-brand-text">
+        <strong>Opticare AI</strong>
+        <span>Eye Health Portal</span>
+      </div>
+    </div>
+
+    <nav class="nav-group">
+      <a href="dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        My Dashboard
+      </a>
+      <a href="scan.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        New Scan
+      </a>
+      <a href="history.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        My History
+      </a>
+      <div class="nav-divider"></div>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </a>
+      <a href="#" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Help & Support
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-footer">
+      <button class="start-scan-btn" onclick="window.location.href='scan.html'">
+        👁️ New Eye Scan
+      </button>
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="sidebar-initials">ME</div>
+        <div>
+          <div class="sidebar-user-name" id="sidebar-name">My Account</div>
+          <div class="sidebar-user-role">Patient</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-inner">
+
+      <!-- PAGE HEADER -->
+      <div>
+        <div class="breadcrumb">
+          <a href="dashboard.html">My Dashboard</a> › <span>Scan History</span>
+        </div>
+        <div class="header-row">
+          <div>
+            <div class="page-title">My Scan History</div>
+            <p class="page-desc">A complete record of all your retinal scans and AI-powered eye health results.</p>
+          </div>
+          <div class="search-row">
+            <div class="search-wrap">
+              <span>🔍</span>
+              <input type="text" placeholder="Search by result or scan ID..." oninput="searchScans(this.value)"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-top"><div class="stat-icon">📋</div></div>
+          <div class="stat-label">Total Scans</div>
+          <div class="stat-value" id="stat-total">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><div class="stat-icon">✅</div></div>
+          <div class="stat-label">Normal Results</div>
+          <div class="stat-value teal" id="stat-normal">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><div class="stat-icon">⚠️</div></div>
+          <div class="stat-label">Flagged Results</div>
+          <div class="stat-value red" id="stat-flagged">—</div>
+        </div>
+        <div class="stat-card wide">
+          <div>
+            <div class="stat-label">Avg. AI Confidence</div>
+            <div class="stat-wide-value" id="stat-avgconf">—</div>
+            <div class="stat-wide-sub">Across all your scans</div>
+          </div>
+          <canvas id="mini-circle" width="80" height="80"></canvas>
+        </div>
+      </div>
+
+      <!-- TABLE -->
+      <div class="table-section">
+        <div class="table-header">
+          <div class="table-title">All Scans</div>
+          <div class="table-actions">
+            <button class="btn-export" onclick="exportCSV()">⬇ Export My Data</button>
+            <button class="btn-newscan" onclick="window.location.href='scan.html'">👁️ New Scan</button>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Scan</th>
+              <th>Date & Time</th>
+              <th>AI Confidence</th>
+              <th>Result</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="5" style="text-align:center;padding:3rem;color:var(--text-muted);">Loading your scans...</td></tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer">
+          <div class="showing-text" id="showing-text">Loading...</div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="page-footer">
+      <div>
+        <div class="footer-brand">Opticare AI</div>
+        <div class="footer-copy">© 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.<br>Results are AI-assisted and do not replace professional medical advice.</div>
+      </div>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Regulatory Compliance</a>
+        <a href="#">Contact</a>
+      </div>
+    </footer>
+  </main>
+
+</div>
+</body>
+</html>

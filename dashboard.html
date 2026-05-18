@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — My Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
+    authDomain: "opticare-ai-4bd34.firebaseapp.com",
+    projectId: "opticare-ai-4bd34",
+    storageBucket: "opticare-ai-4bd34.firebasestorage.app",
+    messagingSenderId: "630632927138",
+    appId: "1:630632927138:web:585517ff40a60c2165ecfb"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = "login.html"; return; }
+
+    const snap = await getDoc(doc(db, "users", user.uid));
+    const name = snap.exists() ? snap.data().name : user.email;
+    const firstName = name.split(" ")[0];
+    const initials = name.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
+
+    document.getElementById("patient-name").textContent = "Welcome back, " + firstName;
+    document.getElementById("user-initials").textContent = initials;
+    document.getElementById("sidebar-initials").textContent = initials;
+    document.getElementById("sidebar-name").textContent = name;
+
+    // Load ALL scans for this patient
+    try {
+      const q = query(collection(db,"users",user.uid,"scans"), orderBy("timestamp","desc"));
+      const scSnap = await getDocs(q);
+
+      const allScans = [];
+      scSnap.forEach(d => allScans.push({ id: d.id, ...d.data() }));
+
+      const totalScans = allScans.length;
+      const flagged = allScans.filter(s => s.isGlaucoma || (s.prediction && s.prediction !== "Normal")).length;
+      const normal  = allScans.filter(s => !s.isGlaucoma && (!s.prediction || s.prediction === "Normal")).length;
+
+      // Update stat cards
+      document.getElementById("stat-total").textContent   = totalScans;
+      document.getElementById("stat-normal").textContent  = normal;
+      document.getElementById("stat-flagged").textContent = flagged;
+
+      // Last scan date
+      if (allScans.length > 0 && allScans[0].timestamp) {
+        const d = allScans[0].timestamp.toDate ? allScans[0].timestamp.toDate() : new Date(allScans[0].timestamp);
+        document.getElementById("stat-lastdate").textContent = d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+      }
+
+      if (totalScans === 0) {
+        // Show empty state
+        document.getElementById("empty-state").style.display = "flex";
+        document.getElementById("scans-table-wrap").style.display = "none";
+      } else {
+        // Show table
+        document.getElementById("empty-state").style.display = "none";
+        document.getElementById("scans-table-wrap").style.display = "block";
+        const tbody = document.getElementById("recent-tbody");
+        tbody.innerHTML = "";
+        allScans.forEach(s => {
+          const isAbnormal = s.isGlaucoma || (s.prediction && s.prediction !== "Normal");
+          const dot   = isAbnormal ? "#ef4444" : "#1D9E75";
+          const label = s.prediction || (s.isGlaucoma ? "Glaucoma" : "Normal");
+          const date  = s.timestamp
+            ? (s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp)).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})
+            : "—";
+          tbody.innerHTML += `
+            <tr class="scan-row" onclick="window.location.href='results.html'">
+              <td><span class="scan-id">#SC-${s.id.slice(-6).toUpperCase()}</span></td>
+              <td><span class="type-pill">Fundus</span></td>
+              <td>${date}</td>
+              <td><span class="indicator-dot" style="background:${dot}"></span> ${label}</td>
+              <td><button class="review-btn" onclick="event.stopPropagation();window.location.href='results.html'">View Report</button></td>
+            </tr>`;
+        });
+      }
+    } catch(e) {
+      console.error(e);
+      document.getElementById("empty-state").style.display = "flex";
+      document.getElementById("scans-table-wrap").style.display = "none";
+    }
+  });
+
+  window.handleLogout = () => signOut(auth).then(() => window.location.href = "login.html");
+</script>
+<style>
+/* ===== RESET & TOKENS ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --teal-dark: #085041; --teal: #0F6E56; --teal-mid: #1D9E75;
+  --teal-light: #E1F5EE; --teal-pale: #f4fbf8;
+  --text: #111827; --text-soft: #374151; --text-muted: #6b7280; --text-faint: #9ca3af;
+  --bg: #eef4f2; --white: #ffffff; --border: #e5e7eb;
+  --red: #ef4444; --sidebar-w: 235px;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text);
+  display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ===== TOP NAV ===== */
+.topnav { background: var(--white); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 1.5rem; height: 52px; gap: 2rem; position: sticky; top: 0; z-index: 100; }
+.brand { font-weight: 700; font-size: 1.05rem; color: var(--teal-dark); white-space: nowrap; text-decoration: none; }
+.topnav-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+.icon-btn { width: 34px; height: 34px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: background .15s; }
+.icon-btn:hover { background: var(--teal-light); }
+.new-scan-topbtn { display: flex; align-items: center; gap: 7px; padding: 0.45rem 1rem; background: var(--teal-dark); color: white;
+  border: none; border-radius: 8px; font-family: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background .2s; }
+.new-scan-topbtn:hover { background: var(--teal); }
+.user-chip { width: 34px; height: 34px; background: var(--teal-dark); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; color: white;
+  cursor: pointer; position: relative; }
+.user-chip .dropdown { position: absolute; top: 42px; right: 0; background: white; border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.5rem; min-width: 150px; box-shadow: 0 8px 24px rgba(0,0,0,.1); display: none; z-index: 200; }
+.user-chip:hover .dropdown { display: block; }
+.dropdown button { width: 100%; padding: 0.4rem 0.6rem; background: none; border: none;
+  font-family: inherit; font-size: 0.85rem; color: #ef4444; cursor: pointer; text-align: left; border-radius: 6px; }
+.dropdown button:hover { background: #fef2f2; }
+
+/* ===== LAYOUT ===== */
+.layout { display: flex; flex: 1; }
+
+/* ===== SIDEBAR ===== */
+.sidebar { width: var(--sidebar-w); background: var(--white); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 1.25rem 0.9rem; position: sticky; top: 52px;
+  height: calc(100vh - 52px); overflow-y: auto; flex-shrink: 0; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 0.75rem; background: var(--teal-light);
+  border-radius: 12px; margin-bottom: 1.5rem; }
+.sidebar-brand-icon { width: 38px; height: 38px; background: var(--teal-dark); border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; }
+.sidebar-brand-text strong { font-size: 0.9rem; color: var(--teal-dark); display: block; line-height: 1.2; }
+.sidebar-brand-text span { font-size: 0.67rem; color: var(--teal-mid); text-transform: uppercase; letter-spacing: .07em; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 0.62rem 0.85rem; border-radius: 10px;
+  color: var(--text-muted); font-size: 0.875rem; text-decoration: none; cursor: pointer;
+  transition: all .15s; border: none; background: none; font-family: inherit; width: 100%; }
+.nav-item:hover { background: var(--bg); color: var(--text-soft); }
+.nav-item.active { background: var(--teal-light); color: var(--teal-dark); font-weight: 600; }
+.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; opacity: .7; }
+.nav-item.active svg { opacity: 1; }
+.sidebar-spacer { flex: 1; }
+.sidebar-footer { display: flex; flex-direction: column; gap: 8px; }
+.start-scan-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 0.75rem; background: var(--teal-dark); color: white; border: none; border-radius: 10px;
+  font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background .2s; }
+.start-scan-btn:hover { background: var(--teal); }
+.sidebar-user { display: flex; align-items: center; gap: 9px; padding: 0.6rem 0.5rem; margin-top: 4px; }
+.sidebar-avatar { width: 32px; height: 32px; background: var(--teal-dark); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: white; flex-shrink: 0; }
+.sidebar-user-name { font-size: 0.8rem; font-weight: 600; color: var(--text); line-height: 1.2; }
+.sidebar-user-role { font-size: 0.7rem; color: var(--text-muted); }
+.nav-divider { height: 1px; background: var(--border); margin: 0.6rem 0; }
+
+/* ===== MAIN ===== */
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.main-inner { padding: 2rem 2rem 0; flex: 1; display: flex; flex-direction: column; gap: 1.75rem; }
+
+/* ===== PAGE HEADER ===== */
+.page-welcome { font-size: 0.72rem; font-weight: 700; color: var(--teal-mid); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .3rem; }
+.page-title { font-family: 'DM Serif Display', serif; font-size: 2.4rem; line-height: 1.1; color: var(--text); }
+.page-sub { font-size: 0.9rem; color: var(--text-muted); margin-top: .35rem; }
+.header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.new-scan-btn { display: flex; align-items: center; gap: 8px; padding: 0.7rem 1.4rem;
+  background: var(--teal-dark); color: white; border: none; border-radius: 10px;
+  font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  transition: background .2s; white-space: nowrap; flex-shrink: 0; }
+.new-scan-btn:hover { background: var(--teal); }
+
+/* ===== STAT CARDS ===== */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 1.35rem 1.5rem; }
+.stat-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: .5rem; font-weight: 500; }
+.stat-val { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--text); line-height: 1; }
+.stat-val.red { color: var(--red); }
+.stat-val.teal { color: var(--teal-mid); }
+
+/* ===== SCANS TABLE CARD ===== */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.card-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border); }
+.card-title { font-weight: 600; font-size: 1rem; }
+.view-all { font-size: 0.82rem; color: var(--teal-mid); text-decoration: none; font-weight: 500; cursor: pointer; }
+.view-all:hover { color: var(--teal-dark); }
+table { width: 100%; border-collapse: collapse; }
+thead th { font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-transform: uppercase;
+  letter-spacing: .08em; padding: .85rem 1.4rem; text-align: left; background: var(--teal-pale); border-bottom: 1px solid var(--border); }
+.scan-row td { padding: .95rem 1.4rem; border-bottom: 1px solid var(--border); font-size: .875rem; vertical-align: middle; cursor: pointer; }
+.scan-row:last-child td { border-bottom: none; }
+.scan-row:hover td { background: var(--teal-pale); }
+.scan-id { font-weight: 600; font-size: 0.875rem; color: var(--text); font-family: monospace; }
+.type-pill { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  font-size: 0.75rem; font-weight: 500; padding: .2rem .65rem; color: var(--text-soft); }
+.indicator-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.review-btn { padding: .3rem .85rem; background: none; border: 1px solid var(--border); border-radius: 7px;
+  font-family: inherit; font-size: .8rem; font-weight: 500; color: var(--text-soft); cursor: pointer; transition: all .15s; }
+.review-btn:hover { background: var(--teal-light); border-color: var(--teal-mid); color: var(--teal-dark); }
+
+/* ===== EMPTY STATE ===== */
+#empty-state { display: none; flex-direction: column; align-items: center; text-align: center;
+  padding: 4rem 2rem; gap: 1.25rem; }
+.empty-icon { font-size: 3.5rem; opacity: .35; }
+.empty-title { font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--text); }
+.empty-sub { font-size: 0.9rem; color: var(--text-muted); max-width: 340px; line-height: 1.6; }
+.empty-cta { display: flex; align-items: center; gap: 8px; padding: 0.75rem 1.6rem;
+  background: var(--teal-dark); color: white; border: none; border-radius: 10px;
+  font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background .2s; margin-top: .5rem; }
+.empty-cta:hover { background: var(--teal); }
+
+/* ===== TIPS CARD ===== */
+.tips-card { background: var(--teal-pale); border: 1px solid var(--teal-light); border-radius: 14px; padding: 1.4rem 1.5rem; }
+.tips-title { font-weight: 600; font-size: .95rem; color: var(--teal-dark); margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
+.tip-item { display: flex; align-items: flex-start; gap: .75rem; padding: .65rem 0; border-bottom: 1px solid var(--teal-light); }
+.tip-item:last-child { border-bottom: none; padding-bottom: 0; }
+.tip-icon { width: 32px; height: 32px; background: var(--teal-light); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: .9rem; flex-shrink: 0; margin-top: 1px; }
+.tip-text strong { font-size: .85rem; color: var(--text); display: block; margin-bottom: 2px; }
+.tip-text span { font-size: .78rem; color: var(--text-muted); line-height: 1.5; }
+
+/* ===== CONTENT GRID ===== */
+.content-grid { display: grid; grid-template-columns: 1fr 300px; gap: 1.25rem; }
+
+/* ===== FOOTER ===== */
+.page-footer { background: white; border-top: 1px solid var(--border); padding: 1.5rem 2rem;
+  display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-top: 1.75rem; }
+.footer-brand { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--teal-dark); margin-bottom: .25rem; }
+.footer-copy { font-size: .75rem; color: var(--text-faint); line-height: 1.6; }
+.footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; }
+.footer-links a { font-size: .8rem; color: var(--text-muted); text-decoration: none; }
+.footer-links a:hover { color: var(--teal-dark); }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a href="dashboard.html" class="brand">Opticare AI</a>
+  <div class="topnav-right">
+    <div class="icon-btn">🔔</div>
+    <div class="icon-btn">⚙️</div>
+    <button class="new-scan-topbtn" onclick="window.location.href='scan.html'">👁️ New Eye Scan</button>
+    <div class="user-chip">
+      <span id="user-initials">ME</span>
+      <div class="dropdown"><button onclick="handleLogout()">🚪 Sign Out</button></div>
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">👁️</div>
+      <div class="sidebar-brand-text">
+        <strong>Opticare AI</strong>
+        <span>Eye Health Portal</span>
+      </div>
+    </div>
+
+    <nav class="nav-group">
+      <a href="dashboard.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        My Dashboard
+      </a>
+      <a href="scan.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        New Scan
+      </a>
+      <a href="history.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        My History
+      </a>
+      <div class="nav-divider"></div>
+      <a href="settings.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </a>
+      <a href="#" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Help & Support
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-footer">
+      <button class="start-scan-btn" onclick="window.location.href='scan.html'">
+        👁️ Start New Eye Scan
+      </button>
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="sidebar-initials">ME</div>
+        <div>
+          <div class="sidebar-user-name" id="sidebar-name">My Account</div>
+          <div class="sidebar-user-role">Patient</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-inner">
+
+      <!-- HEADER -->
+      <div class="header-row">
+        <div>
+          <div class="page-welcome" id="patient-name">WELCOME BACK</div>
+          <h1 class="page-title">My Eye Health</h1>
+          <p class="page-sub">Track your retinal scans, view AI-powered results, and monitor your eye health over time.</p>
+        </div>
+        <button class="new-scan-btn" onclick="window.location.href='scan.html'">👁️ New Eye Scan</button>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Scans</div>
+          <div class="stat-val" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Normal Results</div>
+          <div class="stat-val teal" id="stat-normal">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Flagged Results</div>
+          <div class="stat-val red" id="stat-flagged">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Last Scan</div>
+          <div class="stat-val" style="font-size:1.5rem;padding-top:.25rem" id="stat-lastdate">—</div>
+        </div>
+      </div>
+
+      <!-- CONTENT GRID -->
+      <div class="content-grid">
+
+        <!-- SCANS TABLE -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">My Scans</div>
+            <a href="history.html" class="view-all">View Full History →</a>
+          </div>
+
+          <!-- Empty state -->
+          <div id="empty-state">
+            <div class="empty-icon">🔬</div>
+            <div class="empty-title">No scans yet</div>
+            <p class="empty-sub">You haven't uploaded any retinal scans yet. Start your first scan to get an AI-powered eye health report.</p>
+            <button class="empty-cta" onclick="window.location.href='scan.html'">👁️ Start My First Scan</button>
+          </div>
+
+          <!-- Table (hidden when empty) -->
+          <div id="scans-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Scan ID</th>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>AI Result</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="recent-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TIPS / INFO CARD -->
+        <div class="tips-card">
+          <div class="tips-title">👁️ Eye Health Tips</div>
+          <div class="tip-item">
+            <div class="tip-icon">📅</div>
+            <div class="tip-text">
+              <strong>Scan Regularly</strong>
+              <span>Early detection saves vision. Aim for a scan every 6–12 months.</span>
+            </div>
+          </div>
+          <div class="tip-item">
+            <div class="tip-icon">🔴</div>
+            <div class="tip-text">
+              <strong>Flagged Result?</strong>
+              <span>If your scan shows abnormal findings, consult an ophthalmologist promptly.</span>
+            </div>
+          </div>
+          <div class="tip-item">
+            <div class="tip-icon">💧</div>
+            <div class="tip-text">
+              <strong>Protect Your Eyes</strong>
+              <span>Reduce screen time, wear UV-protection sunglasses, and stay hydrated.</span>
+            </div>
+          </div>
+          <div class="tip-item">
+            <div class="tip-icon">📋</div>
+            <div class="tip-text">
+              <strong>Share Results</strong>
+              <span>Download your report from any scan result and share with your doctor.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="page-footer">
+      <div>
+        <div class="footer-brand">Opticare AI</div>
+        <div class="footer-copy">© 2024 Opticare AI. All rights reserved. Medical Diagnostic Tool.<br>Results are AI-assisted and do not replace professional medical advice.</div>
+      </div>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Regulatory Compliance</a>
+        <a href="#">Contact</a>
+      </div>
+    </footer>
+  </main>
+
+</div>
+</body>
+</html>

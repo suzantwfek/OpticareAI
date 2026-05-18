@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Opticare AI — Security Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --teal: #0F6E56;
+    --teal-mid: #1D9E75;
+    --teal-dark: #085041;
+    --teal-light: #E1F5EE;
+    --teal-bg: #eef4f2;
+    --text: #1a1a1a;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --white: #ffffff;
+    --sidebar-w: 240px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    background: linear-gradient(135deg, #e8f4f0 0%, #f0f7f4 40%, #e4f0f8 100%);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: white;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 50;
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 1.25rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-icon {
+    width: 38px; height: 38px;
+    background: var(--teal-dark);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+  .brand-name { font-weight: 600; font-size: 0.95rem; color: var(--teal-dark); }
+  .brand-sub { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.65rem 0.85rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav-item:hover { background: var(--teal-light); color: var(--teal-dark); }
+  .nav-item.active {
+    background: var(--teal-light);
+    color: var(--teal-dark);
+    position: relative;
+  }
+  .nav-item.active::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 20%; bottom: 20%;
+    width: 3px;
+    background: var(--teal-dark);
+    border-radius: 3px 0 0 3px;
+  }
+  .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+  .sidebar-user {
+    margin: 0.75rem;
+    background: var(--teal-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+  }
+  .user-info { display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem; }
+  .user-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--teal-mid);
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.88rem;
+    flex-shrink: 0;
+  }
+  .user-name { font-size: 0.85rem; font-weight: 600; }
+  .user-role { font-size: 0.72rem; color: var(--text-muted); }
+  .btn-signout {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #DC2626;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+    padding: 0;
+  }
+  .btn-signout:hover { text-decoration: underline; }
+
+  /* ── MAIN ── */
+  .main-wrap {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.9rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+  }
+  .breadcrumb .parent { color: var(--text-muted); }
+  .breadcrumb .sep { color: var(--border); }
+  .breadcrumb .current { font-weight: 600; color: var(--text); }
+  .topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    transition: background 0.15s;
+  }
+  .icon-btn:hover { background: var(--teal-light); color: var(--teal-dark); }
+
+  /* CONTENT */
+  .content {
+    flex: 1;
+    padding: 2rem 2rem 3rem;
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  /* LEFT COL */
+  .left-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .section-header h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    line-height: 1.15;
+    color: var(--teal-dark);
+    margin-bottom: 0.85rem;
+  }
+  .section-header p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.65;
+    max-width: 340px;
+  }
+
+  .info-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.1rem 1.25rem;
+  }
+  .info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0.5rem 0;
+  }
+  .info-row + .info-row { border-top: 1px solid var(--border); }
+  .info-row-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--teal-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    color: var(--teal-dark);
+  }
+  .info-row-body {}
+  .info-row-label { font-size: 0.78rem; font-weight: 600; color: var(--teal-dark); margin-bottom: 0.1rem; }
+  .info-row-value { font-size: 0.8rem; color: var(--text-muted); }
+
+  .retina-card {
+    background: var(--teal-dark);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    height: 170px;
+    display: flex;
+    align-items: flex-end;
+  }
+  .retina-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 40%, rgba(29,158,117,0.6) 0%, rgba(8,80,65,0.9) 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .retina-pattern {
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.12);
+    position: absolute;
+  }
+  .retina-pattern:nth-child(2) { width: 110px; height: 110px; border-color: rgba(255,255,255,0.08); }
+  .retina-pattern:nth-child(3) { width: 60px; height: 60px; background: rgba(29,158,117,0.3); }
+  .retina-optic {
+    width: 18px; height: 18px;
+    background: rgba(255,220,150,0.9);
+    border-radius: 50%;
+    position: absolute;
+    right: 38%;
+    box-shadow: 0 0 20px rgba(255,200,100,0.5);
+  }
+  .retina-label {
+    position: relative;
+    z-index: 2;
+    padding: 1rem 1.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.05em;
+  }
+
+  /* RIGHT COL */
+  .right-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    box-shadow: 0 2px 16px rgba(8,80,65,0.05);
+  }
+
+  .card-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.3rem;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+  .card-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+  .field label { font-size: 0.82rem; font-weight: 500; color: var(--text); }
+  .input-wrap { position: relative; display: flex; align-items: center; }
+  .field input {
+    width: 100%;
+    padding: 0.75rem 2.8rem 0.75rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus { border-color: var(--teal-mid); box-shadow: 0 0 0 3px rgba(29,158,117,0.1); background: white; }
+  .field input::placeholder { color: #adb5bd; }
+  .eye-btn {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .eye-btn:hover { color: var(--teal); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  /* STRENGTH */
+  .strength-section { margin-bottom: 1.25rem; }
+  .strength-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+  }
+  .strength-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .strength-value { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--teal-dark); }
+  .strength-bars { display: flex; gap: 4px; margin-bottom: 0.85rem; }
+  .bar {
+    flex: 1; height: 5px; border-radius: 3px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .bar.active { background: var(--teal-mid); }
+  .bar.full { background: var(--teal-dark); }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .check-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .check-icon.ok { background: var(--teal-light); border-color: var(--teal-mid); color: var(--teal-dark); }
+
+  .form-actions { display: flex; align-items: center; gap: 1rem; padding-top: 0.5rem; }
+  .btn-cancel {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text);
+    transition: background 0.15s;
+  }
+  .btn-cancel:hover { background: #f9fafb; }
+  .btn-update {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+    background: var(--teal-dark);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .btn-update:hover { background: var(--teal); transform: translateY(-1px); }
+
+  /* BOTTOM CARDS */
+  .bottom-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .mini-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.15s;
+  }
+  .mini-card:hover { box-shadow: 0 4px 20px rgba(8,80,65,0.1); transform: translateY(-2px); }
+  .mini-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: var(--teal-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+  }
+  .mini-card h4 { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .mini-card p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.7);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-left: 0;
+  }
+  .footer-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .footer-links a { font-size: 0.75rem; color: var(--text-muted); text-decoration: none; }
+  .footer-links a:hover { color: var(--teal); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 2rem; right: 2rem;
+    background: var(--teal-dark);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    box-shadow: 0 8px 30px rgba(8,80,65,0.25);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main-wrap { margin-left: 0; }
+    .content { grid-template-columns: 1fr; }
+    .bottom-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">👁</div>
+    <div class="brand-text">
+      <span class="brand-name">OphthaAI</span>
+      <span class="brand-sub">Clinical Precision</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="diagnose.html"><span class="nav-icon">▦</span> Dashboard</a>
+    <a class="nav-item" href="#"><span class="nav-icon">👤</span> Patients</a>
+    <a class="nav-item" href="#"><span class="nav-icon">👁</span> Scans</a>
+    <a class="nav-item" href="#"><span class="nav-icon">📋</span> Reports</a>
+    <a class="nav-item active" href="#"><span class="nav-icon">⚙</span> Settings</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-info">
+      <div class="user-avatar">AT</div>
+      <div>
+        <div class="user-name">Dr. Aris Thorne</div>
+        <div class="user-role">Chief Surgeon</div>
+      </div>
+    </div>
+    <button class="btn-signout" onclick="window.location.href='login.html'">↪ Sign Out</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="breadcrumb">
+      <span class="parent">Settings</span>
+      <span class="sep">›</span>
+      <span class="current">Security</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn">🔔</button>
+      <button class="icon-btn">❓</button>
+    </div>
+  </header>
+
+  <div class="content">
+    <!-- LEFT -->
+    <div class="left-col">
+      <div class="section-header">
+        <h2>Secure Your<br/>Clinical Account</h2>
+        <p>Keep your diagnostic data safe. We recommend a password of at least 12 characters including symbols and numbers.</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-row">
+          <div class="info-row-icon">🛡</div>
+          <div class="info-row-body">
+            <div class="info-row-label">Last Changed</div>
+            <div class="info-row-value">March 12, 2024 (2 months ago)</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-row-icon">🖥</div>
+          <div class="info-row-body">
+            <div class="info-row-label">Active Sessions</div>
+            <div class="info-row-value">2 clinical workstations active</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="retina-card">
+        <div class="retina-bg">
+          <div class="retina-pattern"></div>
+          <div class="retina-pattern"></div>
+          <div class="retina-pattern"></div>
+          <div class="retina-optic"></div>
+        </div>
+        <div class="retina-label">Protected by OphthaAI Enterprise Security</div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-col">
+      <div class="card">
+        <h3 class="card-title">Change Password</h3>
+        <p class="card-sub">Update your credentials to maintain HIPAA compliance.</p>
+
+        <div class="field">
+          <label>Current Password</label>
+          <div class="input-wrap">
+            <input type="password" id="current-pw" value="••••••••••••" />
+            <button class="eye-btn" onclick="togglePw('current-pw', this)">👁</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field" style="margin-bottom:0">
+            <label>New Password</label>
+            <input type="password" id="new-pw" placeholder="Enter new password" oninput="checkStrength()" />
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Confirm New Password</label>
+            <input type="password" id="confirm-pw" placeholder="Repeat new password" />
+          </div>
+        </div>
+
+        <div style="height:1rem"></div>
+
+        <div class="strength-section">
+          <div class="strength-header">
+            <span class="strength-label">Security Strength</span>
+            <span class="strength-value" id="strength-text">—</span>
+          </div>
+          <div class="strength-bars">
+            <div class="bar" id="bar1"></div>
+            <div class="bar" id="bar2"></div>
+            <div class="bar" id="bar3"></div>
+            <div class="bar" id="bar4"></div>
+          </div>
+          <div class="checks">
+            <div class="check-item">
+              <div class="check-icon" id="chk-len">✓</div>
+              12+ Characters
+            </div>
+            <div class="check-item">
+              <div class="check-icon ok" id="chk-sym">✓</div>
+              Special symbols
+            </div>
+            <div class="check-item">
+              <div class="check-icon" id="chk-upper">✓</div>
+              Uppercase letter
+            </div>
+            <div class="check-item">
+              <div class="check-icon ok" id="chk-num">✓</div>
+              Numbers
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-cancel">Cancel</button>
+          <button class="btn-update" onclick="updatePassword()">Update Password 🔄</button>
+        </div>
+      </div>
+
+      <div class="bottom-cards">
+        <div class="mini-card">
+          <div class="mini-icon">🔐</div>
+          <h4>2FA Enabled</h4>
+          <p>Authenticated via SMS</p>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🕐</div>
+          <h4>Login Logs</h4>
+          <p>Review recent activity</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-badge">🛡 Opticare AI Clinical Security Protocol V4.2</div>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function togglePw(id, btn) {
+    const input = document.getElementById(id);
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁';
+    }
+  }
+
+  function checkStrength() {
+    const pw = document.getElementById('new-pw').value;
+    const hasLen    = pw.length >= 12;
+    const hasSym    = /[!@#$%^&*()_+\-=\[\]{}|;':",.<>?]/.test(pw);
+    const hasUpper  = /[A-Z]/.test(pw);
+    const hasNum    = /[0-9]/.test(pw);
+
+    setCheck('chk-len',   hasLen);
+    setCheck('chk-sym',   hasSym);
+    setCheck('chk-upper', hasUpper);
+    setCheck('chk-num',   hasNum);
+
+    const score = [hasLen, hasSym, hasUpper, hasNum].filter(Boolean).length;
+    const bars = ['bar1','bar2','bar3','bar4'];
+    bars.forEach((id, i) => {
+      const el = document.getElementById(id);
+      el.className = 'bar';
+      if (i < score) el.classList.add(score >= 4 ? 'full' : 'active');
+    });
+
+    const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+    document.getElementById('strength-text').textContent = score > 0 ? labels[score] : '—';
+  }
+
+  function setCheck(id, ok) {
+    const el = document.getElementById(id);
+    el.className = 'check-icon' + (ok ? ' ok' : '');
+    el.textContent = ok ? '✓' : '';
+  }
+
+  function updatePassword() {
+    const newPw = document.getElementById('new-pw').value;
+    const confirmPw = document.getElementById('confirm-pw').value;
+    if (!newPw) return showToast('Please enter a new password.');
+    if (newPw !== confirmPw) return showToast('Passwords do not match.');
+    if (newPw.length < 8) return showToast('Password too short.');
+    showToast('✓ Password updated successfully!', true);
+    document.getElementById('new-pw').value = '';
+    document.getElementById('confirm-pw').value = '';
+    checkStrength();
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // Init check icons as not-ok
+  ['chk-len','chk-upper'].forEach(id => setCheck(id, false));
+</script>
+</body>
+</html>
