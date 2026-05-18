@@ -1,10 +1,12 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles # استيراد عشان الملفات تشتغل
 import numpy as np
 from PIL import Image
 import tensorflow as tf
 import io
+import os
 
 app = FastAPI(title="Glaucoma Detection API")
 
@@ -20,7 +22,6 @@ model = tf.keras.models.load_model(MODEL_PATH)
 
 IMG_SIZE = (224, 224)
 
-
 def preprocess_image(image_bytes: bytes) -> np.ndarray:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize(IMG_SIZE)
@@ -28,11 +29,16 @@ def preprocess_image(image_bytes: bytes) -> np.ndarray:
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
+# --- [تعديل مهم جداً] ---
+# السطر ده بيخلي السيرفر يشوف كل صفحات الـ HTML والملفات اللي جنبه في الفولدر
+app.mount("/static", StaticFiles(directory="."), name="static")
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def root():
-    return {"message": "Glaucoma Detection API is running ✅"}
-
+    # هنا بنقول للسيرفر أول ما اللينك يفتح، اعرض صفحة الـ login أو index الرئيسية بتاعتك
+    # اتأكدي من اسم الملف هنا (مثلاً لو البداية login.html أو index.html)
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
@@ -53,19 +59,19 @@ async def predict(file: UploadFile = File(...)):
         print(f"DEBUG - raw output: {raw}")
 
         if raw.shape[0] == 1:
-            # sigmoid - قيمة واحدة
+            # --- [تصليح حسابات السيجويد المقلوبة] ---
             prob_glaucoma = float(raw[0])
-            if prob_glaucoma >= 0.5:
-                label = "Normal"
-                confidence = round(prob_glaucoma * 100, 2)
-                is_glaucoma = False
-            else:
+            if prob_glaucoma >= 0.5: # القيمة الكبيرة تعني وجود المرض
                 label = "Glaucoma"
-                confidence = round((1 - prob_glaucoma) * 100, 2)
+                confidence = round(prob_glaucoma * 100, 2)
                 is_glaucoma = True
+            else:
+                label = "Normal"
+                confidence = round((1 - prob_glaucoma) * 100, 2)
+                is_glaucoma = False
 
         else:
-            # softmax - قيمتين
+            # softmax - قيمتين (دي مظبوطة)
             predicted_index = int(np.argmax(raw))
             confidence = round(float(np.max(raw)) * 100, 2)
             label = "Glaucoma" if predicted_index == 0 else "Normal"
