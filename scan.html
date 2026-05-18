@@ -8,7 +8,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAPJQmXvPc3lmFJw4gVRDOjNvwCbBLgal0",
@@ -44,11 +44,12 @@
         recentGrid.innerHTML = "";
         scSnap.forEach(d => {
           const s = d.data();
-          const isAbnormal = s.isGlaucoma || (s.prediction && s.prediction !== "Normal");
-          const label = s.prediction || (s.isGlaucoma ? "Glaucoma" : "Normal");
+          // التعديل: التأكد من قراءة الحالة كـ Boolean
+          const isAbnormal = s.isGlaucoma === true;
+          const label = s.prediction || (isAbnormal ? "Glaucoma" : "Normal");
           const dot = isAbnormal ? "#ef4444" : "#1D9E75";
           const date = s.timestamp
-            ? (s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp)).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})
+            ? (s.timestamp.toDate ? s.timestamp.toDate().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "Recent")
             : "—";
           recentGrid.innerHTML += `
             <div class="recent-scan-card" onclick="window.location.href='results.html'">
@@ -75,7 +76,7 @@
     document.getElementById("perm-screen").style.display = "none";
     document.getElementById("live-screen").style.display = "flex";
     try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       document.getElementById("cam-video").srcObject = cameraStream;
     } catch(e) { alert("Could not access camera."); closeCameraModal(); }
   }
@@ -109,7 +110,7 @@
   });
   window.handleFileInput = inp => { if (inp.files[0]) runAnalysis(inp.files[0]); }
 
-  /* ---- RUN ANALYSIS ---- */
+  /* ---- RUN ANALYSIS (MODIFIED) ---- */
   async function runAnalysis(file) {
     document.getElementById("loading-overlay").style.display = "flex";
     const formData = new FormData();
@@ -117,22 +118,30 @@
     try {
       const res  = await fetch("https://opticareai-production.up.railway.app/predict", { method:"POST", body:formData });
       const data = await res.json();
+      
       if (data.error) { hideLoading(); alert("AI Error: " + data.error); return; }
+
+      // التعديل الجوهري: تحويل الرد لـ Boolean صريح
+      const isGlaucomaBool = data.is_glaucoma === true || data.is_glaucoma === "true" || data.is_glaucoma === 1;
+
       if (currentUser) {
         await addDoc(collection(db,"users",currentUser.uid,"scans"), {
           prediction: data.prediction,
           confidence: data.confidence,
-          isGlaucoma: data.is_glaucoma,
-          timestamp: new Date().toISOString()
+          isGlaucoma: isGlaucomaBool,
+          timestamp: serverTimestamp() // استخدام وقت السيرفر للترتيب الصحيح
         });
       }
-      sessionStorage.setItem("lastResult", JSON.stringify(data));
+      
+      sessionStorage.setItem("lastResult", JSON.stringify({
+        ...data,
+        is_glaucoma: isGlaucomaBool
+      }));
       window.location.href = "results.html";
     } catch(e) {
       hideLoading();
-      const demo = { prediction: "Early-stage Glaucoma", confidence: 94, is_glaucoma: true };
-      sessionStorage.setItem("lastResult", JSON.stringify(demo));
-      window.location.href = "results.html";
+      console.error("Analysis error:", e);
+      alert("Something went wrong with the AI analysis. Please try again.");
     }
   }
   function hideLoading() { document.getElementById("loading-overlay").style.display = "none"; }
@@ -309,29 +318,9 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
 @keyframes spin { to { transform:rotate(360deg); } }
 .loading-text { font-size:1rem; color:rgba(255,255,255,.8); font-weight:500; text-align:center; }
 .loading-sub { font-size:.82rem; color:rgba(255,255,255,.45); text-align:center; max-width:320px; line-height:1.6; }
-
-/* ==========================================
-     ===== Responsive Media Queries =====
-     ========================================== */
-@media (max-width: 900px) {
-  .layout { flex-direction: column; }
-  .sidebar { display: none; }
-  .main { padding: 1.5rem; gap: 2rem; }
-  .page-header h1 { font-size: 2.1rem; }
-}
-
-@media (max-width: 480px) {
-  .topnav { padding: 0 1rem; gap: 0.75rem; }
-  .topnav-page { display: none; }
-  .scan-options { grid-template-columns: 1fr; }
-  .camera-card, .upload-card { padding: 2rem 1.25rem; }
-  .page-header h1 { font-size: 1.8rem; }
-  .modal-box { padding: 1.5rem 1rem; }
-}
 </style>
 </head>
 <body>
-
 <nav class="topnav">
   <a href="dashboard.html" class="brand">Opticare AI</a>
   <span class="topnav-page">New Eye Scan</span>
@@ -349,45 +338,20 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon">👁️</div>
-      <div class="sidebar-brand-text">
-        <strong>Opticare AI</strong>
-        <span>Eye Health Portal</span>
-      </div>
+      <div class="sidebar-brand-text"><strong>Opticare AI</strong><span>Eye Health Portal</span></div>
     </div>
-
     <nav class="nav-group">
-      <a href="dashboard.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        My Dashboard
-      </a>
-      <a href="scan.html" class="nav-item active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-        New Scan
-      </a>
-      <a href="history.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        My History
-      </a>
+      <a href="dashboard.html" class="nav-item">My Dashboard</a>
+      <a href="scan.html" class="nav-item active">New Scan</a>
+      <a href="history.html" class="nav-item">My History</a>
       <div class="nav-divider"></div>
-      <a href="settings.html" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-        Settings
-      </a>
-      <a href="#" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Help & Support
-      </a>
+      <a href="settings.html" class="nav-item">Settings</a>
     </nav>
-
     <div class="sidebar-spacer"></div>
-
     <div class="sidebar-footer">
       <div class="sidebar-user">
         <div class="sidebar-avatar" id="sidebar-initials">ME</div>
-        <div>
-          <div class="sidebar-user-name" id="sidebar-name">My Account</div>
-          <div class="sidebar-user-role">Patient</div>
-        </div>
+        <div><div class="sidebar-user-name" id="sidebar-name">My Account</div><div class="sidebar-user-role">Patient</div></div>
       </div>
     </div>
   </aside>
@@ -395,70 +359,40 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
   <main class="main">
     <div class="page-header">
       <h1>Start Your Eye Scan</h1>
-      <p>Upload a retinal image or use your camera to get an instant AI-powered analysis of your eye health.</p>
+      <p>Upload a retinal image or use your camera to get an instant AI-powered analysis.</p>
     </div>
 
     <div class="scan-options">
       <div class="camera-card">
         <div class="cam-icon-wrap">📷</div>
         <h2>Use Camera</h2>
-        <p>Take a photo of your retinal scan image using your device camera for instant AI analysis.</p>
-        <div class="status-bar">
-          <div class="status-dot"></div>
-          <span>AI Ready</span>
-          <div class="sep"></div>
-          <span>Instant Results</span>
-        </div>
         <button class="launch-btn" onclick="openCameraModal()">▶️ Open Camera</button>
       </div>
-
       <div class="upload-card" id="dropzone">
         <div class="upload-icon-wrap">🖼️</div>
         <h2>Upload Image</h2>
-        <p>Upload a retinal scan image from your device to receive your AI-powered eye health report.</p>
-        <div class="dropzone-box">
-          <div class="dropzone-hint">Drag and drop your image here</div>
-          <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileInput(this)"/>
-          <button class="browse-btn" onclick="document.getElementById('file-input').click()">+ Choose Image</button>
-        </div>
-        <div class="upload-formats">Supported formats: JPEG, PNG, TIFF (Max. 50MB)</div>
+        <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileInput(this)"/>
+        <button class="browse-btn" onclick="document.getElementById('file-input').click()">+ Choose Image</button>
       </div>
     </div>
 
     <div class="how-section">
       <div class="how-title">How It Works</div>
       <div class="how-steps">
-        <div class="how-step">
-          <div class="step-num">1</div>
-          <div class="step-title">Upload Your Scan</div>
-          <div class="step-desc">Take a photo or upload your retinal scan image from your doctor's printout or device.</div>
-        </div>
-        <div class="how-step">
-          <div class="step-num">2</div>
-          <div class="step-title">AI Analysis</div>
-          <div class="step-desc">Our AI model analyzes your scan in seconds, checking for signs of glaucoma and other conditions.</div>
-        </div>
-        <div class="how-step">
-          <div class="step-num">3</div>
-          <div class="step-title">View Your Report</div>
-          <div class="step-desc">Get a clear, easy-to-understand report with your results. Save or share it with your doctor.</div>
-        </div>
+        <div class="how-step"><div class="step-num">1</div><div class="step-title">Upload Scan</div></div>
+        <div class="how-step"><div class="step-num">2</div><div class="step-title">AI Analysis</div></div>
+        <div class="how-step"><div class="step-num">3</div><div class="step-title">View Report</div></div>
       </div>
     </div>
 
     <div class="recent-section" id="recent-scans-wrap">
-      <div class="recent-header">
-        <div class="recent-title">My Previous Scans</div>
-        <a href="history.html" class="recent-link">View all →</a>
-      </div>
+      <div class="recent-header"><div class="recent-title">My Previous Scans</div></div>
       <div class="recent-grid" id="recent-scans-grid"></div>
     </div>
 
     <div class="disclaimer">
       <div class="disclaimer-icon">ℹ️</div>
-      <div class="disclaimer-text">
-        <strong>Important:</strong> Opticare AI results are for informational purposes only and do not replace a professional medical diagnosis. If your scan shows abnormal results, please consult a qualified ophthalmologist as soon as possible.
-      </div>
+      <div class="disclaimer-text"><strong>Important:</strong> Results are for informational purposes.</div>
     </div>
   </main>
 </div>
@@ -468,27 +402,18 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
     <div class="modal-close" onclick="closeCameraModal()">✕</div>
     <div id="perm-screen" style="display:flex">
       <div class="perm-icon">📷</div>
-      <div class="modal-title">Allow Camera Access</div>
-      <p class="modal-desc">Opticare AI needs access to your camera to capture a photo of your retinal scan for analysis.</p>
       <button class="allow-btn" onclick="allowCamera()">Allow Camera</button>
-      <button class="block-btn" onclick="closeCameraModal()">Cancel</button>
-      <p class="privacy-note">Your privacy is protected. Images are processed securely and only saved when you confirm.</p>
     </div>
     <div id="live-screen">
       <video id="cam-video" autoplay playsinline></video>
-      <div class="cam-actions">
-        <button class="capture-btn" onclick="captureAndAnalyze()">📸 Capture & Analyze</button>
-        <button class="cancel-btn" onclick="closeCameraModal()">Cancel</button>
-      </div>
+      <button class="capture-btn" onclick="captureAndAnalyze()">📸 Capture & Analyze</button>
     </div>
   </div>
 </div>
 
 <div class="loading-overlay" id="loading-overlay">
   <div class="loading-spinner"></div>
-  <div class="loading-text">Analyzing your eye scan...</div>
-  <div class="loading-sub">Our AI is examining your retinal image. This usually takes just a few seconds.</div>
+  <div class="loading-text">Analyzing...</div>
 </div>
-
 </body>
 </html>
